@@ -6,6 +6,7 @@ using Microsoft.EntityFrameworkCore;
 using Microsoft.IdentityModel.Tokens;
 using Microsoft.OpenApi.Models;
 using Serilog;
+using Workit.Api.Common.Persistence;
 using Workit.Api.Common.Routing;
 using Workit.Api.Common.Swagger;
 using Workit.Core;
@@ -91,6 +92,8 @@ if (settings.Hangfire.Enabled)
 }
 
 var app = builder.Build();
+
+await app.ApplyMigrationsAndSeedDataAsync();
 
 app.UseSerilogRequestLogging();
 app.UseExceptionHandler(exceptionApp => exceptionApp.Run(ApiExceptionWriter.WriteAsync));
