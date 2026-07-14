@@ -4,6 +4,7 @@ using Microsoft.Extensions.DependencyInjection;
 using Workit.Core.Shared.Behaviours;
 using Workit.Core.Shared.PasswordHashers;
 using Workit.Core.Shared.Persistence.DataMigrators;
+using Workit.Core.Shared.Persistence.DataSeeders;
 using Workit.Core.Shared.Persistence.DataWriters;
 using Workit.Core.Shared.Persistence.GenericQueries;
 using Workit.Core.Shared.Resiliency;
@@ -25,6 +26,7 @@ public static class DependencyInjection
         services.AddScoped<IDataWriter, EfDataWriter>();
         services.AddScoped<IGenericQuery, EfGenericQuery>();
         services.AddScoped<IDataMigrator, EfDataMigrator>();
+        services.AddScoped<IDataSeeder, WorkitDataSeeder>();
         services.AddScoped<IResilienceHandler, PollyResilienceHandler>();
         services.AddSingleton<IPasswordHasher, BCryptPasswordHasher>();
         services.AddTransient<IAccessTokenCreator, JwtAccessTokenCreator>();

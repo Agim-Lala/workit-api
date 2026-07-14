@@ -34,7 +34,7 @@ public static class GetAllUsers
             var users = await query
                 .Skip((page - 1) * pageSize)
                 .Take(pageSize)
-                .Select(user => new UserDto(user.Id, user.Email))
+                .Select(user => new UserDto(user.Id, user.Email, user.Role))
                 .ToListAsync(cancellationToken);
 
             var totalPages = totalCount == 0
