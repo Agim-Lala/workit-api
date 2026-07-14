@@ -1,0 +1,113 @@
+---
+description: Entity Framework Core Fluent API configuration and migration rules for Workit.
+alwaysApply: false
+---
+
+# Entity Framework Migrations And Configuration
+
+Workit uses EF Core with explicit Fluent API configuration. Domain models stay clean; persistence rules belong in configuration classes.
+
+### Configuration Rules
+
+- Use Fluent API configuration classes implementing `IEntityTypeConfiguration<T>`.
+- Keep configurations in `Workit.Core/Shared/Persistence/Configurations`.
+- Do not use data annotations for persistence mapping.
+- Configure every string property with an explicit `HasMaxLength(...)`.
+- Configure required fields explicitly with `.IsRequired()` where appropriate.
+- Configure indexes and uniqueness explicitly.
+- Configure relationships from one side where possible.
+- Use `DeleteBehavior.Restrict` for relationships unless cascade delete is an explicit domain requirement.
+- Include foreign key properties in domain models when a relationship exists.
+- Keep navigation properties nullable unless they are always loaded and required.
+
+Example:
+
+```csharp
+public sealed class UserConfiguration : IEntityTypeConfiguration<User>
+{
+    public void Configure(EntityTypeBuilder<User> builder)
+    {
+        builder.ToTable("users");
+        builder.HasKey(user => user.Id);
+
+        builder.Property(user => user.Email)
+            .HasMaxLength(320)
+            .IsRequired();
+
+        builder.HasIndex(user => user.Email)
+            .IsUnique();
+
+        builder.Property(user => user.PasswordHash)
+            .HasMaxLength(256)
+            .IsRequired();
+    }
+}
+```
+
+`WorkitDbContextBase` applies configurations from the Core assembly. Any new configuration must be discoverable by `modelBuilder.ApplyConfigurationsFromAssembly(...)`.
+
+### Relationship Rules
+
+One-to-many:
+
+```csharp
+builder.HasOne(x => x.Category)
+    .WithMany()
+    .HasForeignKey(x => x.CategoryId)
+    .OnDelete(DeleteBehavior.Restrict);
+```
+
+One-to-one:
+
+```csharp
+builder.HasOne(x => x.User)
+    .WithOne()
+    .HasForeignKey<UserProfile>(x => x.UserId)
+    .OnDelete(DeleteBehavior.Restrict);
+```
+
+Many-to-many relationships should use an explicit join entity when domain behavior, metadata, auditing, or future extensibility is likely.
+
+### Migration Commands
+
+Restore local tools first:
+
+```bash
+dotnet tool restore
+```
+
+Create migrations:
+
+```bash
+dotnet ef migrations add <Name> \
+  --project Workit.Core \
+  --startup-project Workit.Api \
+  --context AppDbContext \
+  --output-dir Shared/Persistence/Migrations
+```
+
+Apply migrations:
+
+```bash
+dotnet ef database update \
+  --project Workit.Core \
+  --startup-project Workit.Api \
+  --context AppDbContext
+```
+
+Remove the last unapplied migration:
+
+```bash
+dotnet ef migrations remove \
+  --project Workit.Core \
+  --startup-project Workit.Api \
+  --context AppDbContext
+```
+
+Rules:
+
+- Use `AppDbContext` for migrations.
+- Do not create migrations from `ReadAppDbContext`.
+- Use descriptive migration names such as `AddUsersTable` or `AddUserEmailUniqueIndex`.
+- Do not hand-edit migration snapshots unless fixing a deliberate EF issue.
+- Review generated migrations before committing them.

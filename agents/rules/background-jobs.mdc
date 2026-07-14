@@ -1,0 +1,67 @@
+---
+description: Background job and target outbox pattern rules for Workit.
+alwaysApply: false
+---
+
+# Background Jobs
+
+Workit uses Hangfire as optional background job infrastructure. It is configured in `Workit.Api/Program.cs` when `settings.Hangfire.Enabled` is true.
+
+Current Workit behavior:
+
+- Hangfire uses memory storage.
+- `app.UseHangfireDashboard("/jobs")` exposes the dashboard at `/jobs`.
+- Core contains `IBackgroundJob` as the current job marker/abstraction.
+- A full outbox implementation is not currently present. Treat outbox guidance as the target pattern when reliable asynchronous processing is introduced.
+
+### Job Rules
+
+- Keep job business logic in Core.
+- Keep Hangfire setup and scheduling in API startup or API infrastructure.
+- Jobs that write data follow command persistence rules.
+- Jobs that read data follow query persistence rules.
+- Job handlers should be idempotent because retries can happen.
+- Pass `CancellationToken` through async work.
+- Log failures with enough context to diagnose the job and affected entity.
+- Keep jobs reasonably short; split large processing into batches.
+
+### Outbox Target Pattern
+
+Use the outbox pattern when a command must both persist data and trigger asynchronous side effects.
+
+Flow:
+
+```text
+1. Command handler creates/updates the main entity.
+2. Handler creates an outbox event in the same transaction.
+3. Scheduled job finds unprocessed outbox events.
+4. Dispatcher queues individual jobs.
+5. Job runner processes each event idempotently.
+6. Event is marked completed, retryable, or failed.
+```
+
+Rules:
+
+- Save the outbox event in the same transaction as the main entity.
+- Include object id and object type for traceability.
+- Serialize the background request payload explicitly.
+- Background handlers must be safe to retry.
+- Failed events must be observable and recoverable.
+- Do not block HTTP command handlers waiting for background side effects.
+
+Example target command flow:
+
+```csharp
+var user = new User(email, passwordHash, clock.UtcNow);
+var outboxEvent = OutboxEvent.Create(
+    eventType: new SendWelcomeEmail.Request(user.Id),
+    createdAt: clock.UtcNow,
+    objectId: user.Id.ToString(),
+    objectType: nameof(User));
+
+db.Add(user);
+db.Add(outboxEvent);
+await dataWriter.SaveChangesAsync(cancellationToken);
+```
+
+Do not implement new outbox APIs by copying names from another project. Add Workit-specific types under `Workit.Core` and register them through Workit's DI conventions.

@@ -1,0 +1,118 @@
+---
+description: Structured error handling rules for validation, domain, not-found, and unexpected exceptions in Workit.
+alwaysApply: false
+---
+
+# Error Handling Guidelines
+
+Workit uses structured application exceptions and a global exception writer.
+
+Current exception types:
+
+- `RequestValidationException`: input validation errors from FluentValidation, returned as `400 Bad Request`.
+- `DomainException`: business rule violations, returned as `400 Bad Request`.
+- `NotFoundException`: missing resources, returned as `404 Not Found`.
+- Any other exception: unexpected/system failure, returned as `500 Internal Server Error`.
+
+The global mapping lives in `Workit.Api/Common/Routing/ApiExceptionWriter.cs` and is wired in `Program.cs` through `app.UseExceptionHandler(...)`.
+
+## Validation Errors
+
+Use FluentValidation validators for request validation that can run before handler logic:
+
+- Required fields.
+- Email, phone, URL, or format checks.
+- Length and range constraints.
+- Simple rules that do not require handler execution.
+
+Validators extend `AbstractValidator<TRequest>` and run through `ValidationBehaviour<TRequest, TResponse>`. Validation failures are converted to `RequestValidationException`.
+
+Example:
+
+```csharp
+public sealed class RequestValidator : AbstractValidator<Request>
+{
+    public RequestValidator()
+    {
+        RuleFor(x => x.Email)
+            .NotEmpty()
+            .EmailAddress()
+            .MaximumLength(320);
+
+        RuleFor(x => x.Password)
+            .NotEmpty()
+            .MinimumLength(8)
+            .MaximumLength(128);
+    }
+}
+```
+
+Do not throw `DomainException` for basic request shape validation.
+
+## Domain Errors
+
+Use `DomainException` for business rules that require handler execution, domain state, or data access:
+
+- Account is blocked, disabled, deleted, or not verified.
+- Invalid credentials.
+- State transitions that are not allowed.
+- Business limits or eligibility checks.
+- Domain-level authorization failures.
+
+Example:
+
+```csharp
+if (user.IsBlocked)
+{
+    throw new DomainException("Your account has been blocked.");
+}
+```
+
+Prefer clear, user-facing messages. When localization is added, use the localization abstraction for user-facing text.
+
+## Not Found Errors
+
+Use `NotFoundException` when a requested resource does not exist:
+
+```csharp
+var user = await db.Users
+    .FirstOrDefaultAsync(x => x.Id == request.UserId, cancellationToken)
+    ?? throw new NotFoundException("User not found.");
+```
+
+If Workit adds helper methods such as `GetByIdOrThrowAsync`, use those helpers for required entities.
+
+## Response Shapes
+
+Current global responses:
+
+```json
+{
+  "title": "Validation failed",
+  "errors": {
+    "Email": ["Email is required."]
+  }
+}
+```
+
+```json
+{
+  "title": "Domain error",
+  "detail": "Your account has been blocked."
+}
+```
+
+```json
+{
+  "title": "Not found",
+  "detail": "User not found."
+}
+```
+
+## Rules
+
+- Let exceptions propagate to the global exception handler unless local recovery is needed.
+- Do not catch `Exception` in handlers just to wrap it in `DomainException`.
+- Do not leak internal exception details in production responses.
+- Log unexpected operational failures.
+- Test validation, domain, and not-found paths.

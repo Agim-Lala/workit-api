@@ -1,0 +1,104 @@
+---
+description: Git Flow, Conventional Commits, and pull request rules for Workit.
+alwaysApply: false
+---
+
+# Git Workflow And Commit Guidelines
+
+Use Git Flow and Conventional Commits unless the team decides otherwise for a specific repository phase.
+
+### Branches
+
+- `main`: production-ready code.
+- `develop`: integration branch for the next release.
+- `feature/*`: feature work branched from `develop`.
+- `release/*`: release preparation branched from `develop`.
+- `hotfix/*`: urgent fixes branched from `main`.
+
+Examples:
+
+```bash
+git checkout develop
+git pull origin develop
+git checkout -b feature/WORK-132-add-login-endpoint
+```
+
+```bash
+git checkout main
+git checkout -b hotfix/WORK-142-fix-token-expiration
+```
+
+### Commits
+
+Use Conventional Commits:
+
+```text
+type(ticket-number): subject
+```
+
+Types:
+
+- `feat`: new feature.
+- `fix`: bug fix.
+- `docs`: documentation only.
+- `style`: formatting only.
+- `refactor`: code change that is not a feature or bug fix.
+- `test`: tests added or corrected.
+- `chore`: build, tooling, or maintenance.
+
+Examples:
+
+```text
+feat(WORK-132): Add login endpoint
+fix(WORK-142): Resolve token expiration bug
+docs(WORK-90): Update setup instructions
+refactor(WORK-120): Move user status logic into domain model
+test(WORK-131): Add auth endpoint contract tests
+chore(WORK-100): Update dependencies
+```
+
+Rules:
+
+- Use present tense.
+- Keep the subject concise, ideally under 72 characters.
+- Include a ticket number when one exists.
+- Do not end the subject with a period.
+- Keep commits focused and meaningful.
+
+### Pull Requests
+
+Rules:
+
+- PRs target `develop` for normal feature/fix work.
+- PRs require at least one approval.
+- Use squash merges into `develop` and `release` when the team wants a clean feature history.
+- Use merge commits into `main` and from `release` back to `develop` when preserving release history matters.
+- Keep PRs focused and small enough to review.
+- Update docs when setup, behavior, contracts, or architecture change.
+- All relevant tests must pass before merge.
+
+PR checklist:
+
+```markdown
+## Description
+
+Brief description of changes.
+
+## Ticket
+
+- [WORK-132](link-to-ticket)
+
+## Type of Change
+
+- [ ] Bug fix
+- [ ] New feature
+- [ ] Breaking change
+- [ ] Documentation update
+
+## Testing
+
+- [ ] Unit tests added/updated
+- [ ] Integration tests added/updated
+- [ ] Contract/API tests added/updated
+- [ ] Manual testing completed when needed
+```

@@ -1,0 +1,88 @@
+---
+description: Testing rules for Workit using xUnit, NSubstitute, Shouldly, integration tests, and API contract tests.
+alwaysApply: true
+---
+
+# Testing Guidelines
+
+Workit uses xUnit, NSubstitute, and Shouldly.
+
+Tests mirror production structure:
+
+```text
+Workit.Core.Tests/
+  Users/
+    RegisterUserShould.cs
+    Domain/
+      UserTests/
+        ChangeEmailShould.cs
+
+Workit.Api.Tests/
+  Users/
+    AuthEndpointShould.cs
+```
+
+### Naming
+
+- Test class names use `{FeatureName}Should`.
+- Test method names describe behavior, such as `RegisterUser` or `ThrowWhenEmailAlreadyExists`.
+- Use `Should` suffix for test classes rather than `Tests`.
+- Keep Arrange, Act, Assert phases clear.
+
+### Unit Tests
+
+Use unit tests for:
+
+- Domain model behavior.
+- Validators.
+- Utility classes and pure helpers.
+- Handler logic that can be isolated with mocked dependencies.
+
+Rules:
+
+- Use NSubstitute for mocks.
+- Use Shouldly assertions.
+- Test one behavior per test where practical.
+- Domain model methods must have unit tests.
+- Unit tests should not require a database, web host, Redis, Hangfire, or external services.
+
+### Integration Tests
+
+Use integration tests for:
+
+- All queries that read from the database.
+- Commands that write to the database.
+- Persistence configuration behavior.
+- Important command/query flows through MediatR.
+
+Rules:
+
+- Use a real provider or the project-approved test provider for the scenario.
+- Test both success and failure paths.
+- Keep tests isolated and repeatable.
+- Prefer transaction rollback or unique database names for isolation.
+
+### Contract/API Tests
+
+All API endpoints should have contract tests.
+
+Contract tests verify:
+
+- Route URL.
+- HTTP method.
+- Status code.
+- Response shape and important values.
+- Auth behavior for protected endpoints.
+- Error response shape for important failures.
+
+Workit currently uses `WebApplicationFactory<Program>` for API tests. Keep using it unless the test infrastructure is replaced intentionally.
+
+### Coverage Requirements
+
+- Queries: integration tests required.
+- Commands with database writes: integration tests required.
+- Commands without database or external dependencies: unit tests are usually enough.
+- Validators: test directly or indirectly through use case tests.
+- Domain models: unit test every behavior method.
+- Endpoints: contract/API tests required.
+- Background jobs: test handlers like normal use cases; integration-test job persistence and dispatch behavior when implemented.

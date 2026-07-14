@@ -1,0 +1,216 @@
+---
+description: Domain model design rules for Workit, including rich domain behavior, entity structure, factories, enums, and domain tests.
+alwaysApply: true
+---
+
+# Domain Model Guidelines
+
+Domain models are not DTOs. They contain data and may contain behavior. Not every domain model needs methods, but business logic that naturally belongs to an entity should live on that entity instead of making handlers or services fat.
+
+Domain types live under `Workit.Core/<Feature>/Domain`.
+
+Rules:
+
+- Put invariants on domain entities or value objects.
+- Keep persistence annotations and EF configuration out of domain entities when possible; use configuration classes under `Shared/Persistence/Configurations`.
+- Do not expose EF entities directly as API responses.
+- Use DTOs or use case response records for external shapes.
+- Domain behavior should be unit testable without external dependencies.
+- Domain models should not depend on services such as `IPasswordHasher`, `IClock`, `IDataWriter`, or DbContexts.
+
+## Entity Base Classes
+
+Preferred entity base classes for new or refactored domain models:
+
+```csharp
+public abstract record Entity<T>(T Id)
+{
+    public virtual bool Equals(Entity<T>? other)
+        => other is not null && EqualityComparer<T>.Default.Equals(Id, other.Id);
+
+    public override int GetHashCode()
+        => Id?.GetHashCode() ?? 0;
+}
+
+public abstract record EntityWithGuid(DateTimeOffset CreatedAt)
+    : Entity<Guid>(Guid.NewGuid());
+
+public abstract record EntityWithTracking<T>(
+    T Id,
+    DateTimeOffset CreatedAt)
+    : Entity<T>(Id)
+{
+    public DateTimeOffset LastUpdatedAt { get; init; } = DateTimeOffset.UtcNow;
+    public Guid? CreatedBy { get; init; }
+    public Guid? LastUpdatedBy { get; init; }
+}
+```
+
+Use `Entity<T>` when the ID type is not a GUID. Use `EntityWithGuid` for most entities with generated GUID identifiers. Use `EntityWithTracking<T>` only when created/updated audit data is part of the model.
+
+Workit does not currently define these base classes. Do not inherit from them until they are added to the Core project.
+
+## Domain Model Structure
+
+Prefer immutable records for new domain models when EF mapping and the feature requirements allow it:
+
+```csharp
+public record User(
+    string Email,
+    string PasswordHash,
+    DateTimeOffset CreatedAt,
+    UserStatus UserStatus = UserStatus.NotVerified,
+    int LoginAttempts = 0,
+    DateTimeOffset? LastLogin = null)
+    : EntityWithGuid(CreatedAt)
+{
+    public const int MaxAllowedAttempts = 20;
+
+    public User IncrementAttempts()
+    {
+        var attempts = LoginAttempts + 1;
+        var status = attempts >= MaxAllowedAttempts
+            ? UserStatus.Blocked
+            : UserStatus;
+
+        return this with { LoginAttempts = attempts, UserStatus = status };
+    }
+
+    public User SuccessLogin(DateTimeOffset now)
+        => this with { LastLogin = now, LoginAttempts = 0 };
+}
+```
+
+When EF requires mutable construction, keep mutation constrained with private setters and expose behavior methods rather than public setters.
+
+## When To Add Behavior
+
+Add methods to domain models when:
+
+- Business logic in a handler or service operates mainly on one entity.
+- A state transition belongs to the entity.
+- A calculation or validation is specific to the entity.
+- The operation can be expressed without external services or infrastructure.
+
+Simple domain models without methods are acceptable when the entity is primarily data and no entity-specific business logic exists.
+
+## Immutability
+
+Domain behavior should avoid side effects. For record-based models, return a new instance with `with`:
+
+```csharp
+public User SuccessLogin(DateTimeOffset now)
+    => this with { LastLogin = now, LoginAttempts = 0 };
+```
+
+For class-based EF entities, avoid public setters. Use focused methods that enforce invariants:
+
+```csharp
+public void ChangeEmail(string email)
+{
+    Email = email.Trim().ToLowerInvariant();
+}
+```
+
+## Static Factories For Tests
+
+Domain models with behavior should have simple factory helpers for tests when that improves readability:
+
+```csharp
+public static User GenerateUser(Func<User, User>? onCreated = null)
+{
+    var item = new User(
+        Email: "user@example.com",
+        PasswordHash: "password-hash",
+        CreatedAt: DateTimeOffset.UtcNow);
+
+    return onCreated?.Invoke(item) ?? item;
+}
+```
+
+If a model has required relationships, related entities must be required factory parameters. Do not generate random foreign key IDs for related entities that do not exist.
+
+## Domain Enums
+
+Use enums for closed sets of domain values:
+
+```csharp
+public enum UserStatus
+{
+    NotVerified,
+    Active,
+    Blocked,
+    Deleted
+}
+```
+
+Rules:
+
+- Use descriptive domain names.
+- Keep enums near the domain model that owns the concept.
+- Use enums for states, statuses, and types where the set is intentionally closed.
+
+## Testing Domain Models
+
+All domain model behaviors must have unit tests.
+
+Rules:
+
+- Test every domain method.
+- Test boundary conditions and edge cases.
+- Use static factories for readable setup.
+- Domain tests should not require databases, external services, web hosts, or background job infrastructure.
+
+## Domain Organization
+
+```text
+Workit.Core/
+  Users/
+    Domain/
+      User.cs
+      UserStatus.cs
+```
+
+Naming rules:
+
+- Domain models use singular nouns, such as `User` or `Job`.
+- Enums use descriptive names, such as `UserStatus` or `JobStatus`.
+- Methods use verbs, such as `IncrementAttempts`, `SuccessLogin`, `MarkAsBlocked`, `ChangeEmail`, or `Archive`.
+- Constants use PascalCase, such as `MaxAllowedAttempts`.
+
+## Anti-Patterns
+
+Avoid mutable models with public setters and side-effect-heavy methods:
+
+```csharp
+public class User
+{
+    public int LoginAttempts { get; set; }
+
+    public void IncrementAttempts()
+    {
+        LoginAttempts++;
+    }
+}
+```
+
+Avoid anemic domain models when business logic exists elsewhere:
+
+```csharp
+public record User(string Email, int LoginAttempts, UserStatus UserStatus);
+
+// Handler contains logic that belongs in User.
+if (user.LoginAttempts >= User.MaxAllowedAttempts)
+{
+    user = user with { UserStatus = UserStatus.Blocked };
+}
+```
+
+Avoid external dependencies in domain models:
+
+```csharp
+public User IncrementAttempts(IPasswordHasher passwordHasher)
+{
+    // Domain models must not depend on services.
+}
+```

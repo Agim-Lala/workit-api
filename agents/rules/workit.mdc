@@ -1,0 +1,269 @@
+---
+alwaysApply: true
+---
+
+# Workit Architecture Guidelines
+
+Workit follows Clean Architecture with Vertical Slices and CQRS-style request handling. These rules are the project standard for new work and for refactoring existing code toward the target shape.
+
+## Projects
+
+### Workit.Api
+
+Purpose: presentation layer for HTTP concerns.
+
+Responsibilities:
+
+- Define minimal API endpoint groups and route mappings.
+- Translate HTTP requests into Core use case requests.
+- Send use cases through `IMediator`.
+- Configure auth, CORS, Swagger, health checks, exception handling, Hangfire, logging, and application startup.
+- Keep business rules out of endpoints.
+
+### Workit.Core
+
+Purpose: domain, application logic, and persistence abstractions.
+
+Responsibilities:
+
+- Use cases implemented with MediatR request and handler types.
+- Domain entities and value objects.
+- FluentValidation validators.
+- Shared feature services and cross-cutting services.
+- Persistence contexts and abstractions such as `AppDbContext`, `ReadAppDbContext`, `IDataWriter`, and `IGenericQuery`.
+
+### Tests
+
+- `Workit.Api.Tests`: API and integration-style endpoint tests.
+- `Workit.Core.Tests`: business logic, validators, persistence, and service tests.
+
+## Dependency Direction
+
+```text
+Workit.Api
+  -> Workit.Core
+```
+
+Rules:
+
+- `Workit.Api` may depend on `Workit.Core`.
+- `Workit.Core` must not depend on `Workit.Api`.
+- Endpoints call Core use cases through MediatR.
+- Use cases do not call other use cases.
+- Shared logic belongs in focused services inside Core.
+
+## Vertical Slice Organization
+
+Organize feature code by business area, not by technical type.
+
+```text
+Workit.Api/
+  Users/
+    AuthEndpoints.cs
+
+Workit.Core/
+  Users/
+    RegisterUser.cs
+    LoginUser.cs
+    Domain/
+      User.cs
+    Shared/
+      UserDto.cs
+      Services/
+        GetUserByEmailQuery.cs
+```
+
+Use `Shared/` only for cross-feature infrastructure or genuinely shared feature code. Prefer feature-local files until code is reused.
+
+## Endpoint Rules
+
+Endpoints live in `Workit.Api/<Feature>/`, one endpoint per file, and implement `IRouteMapper`. Route mappers are auto-discovered by `app.MapRoutes()` in `Program.cs`.
+
+Example:
+
+```csharp
+public sealed class UserEndpoints : IRouteMapper
+{
+    public void MapRoutes(IEndpointRouteBuilder app)
+    {
+        var group = app.MapGroup("/users")
+            .WithTags("Users")
+            .RequireAuthorization();
+
+        group.MapGet("/{id:guid}", async (
+                Guid id,
+                IMediator mediator,
+                CancellationToken cancellationToken) =>
+            await mediator.Send(new GetUser.Request(id), cancellationToken))
+            .WithName(nameof(GetUser));
+    }
+}
+```
+
+Rules:
+
+- Endpoint files are named `{Action}Endpoint.cs`.
+- Each endpoint gets its own file and `IRouteMapper` implementation.
+- Endpoint classes implement `IRouteMapper`.
+- Endpoint route paths use RESTful conventions.
+- Endpoints should be thin: bind input, call `mediator.Send`, return the result.
+- Use `[AsParameters]` for query parameter records when helpful.
+- Use `[FromBody]` for explicit request body binding when needed.
+- Inject services through endpoint parameters.
+- Always include `.WithName(...)` and `.WithTags(...)`.
+- Add `.RequireAuthorization()` for protected routes and `.AllowAnonymous()` only where intentional.
+- Do not manually register each endpoint in `Program.cs`; `app.MapRoutes()` discovers route mappers.
+
+## Use Case Pattern
+
+Use cases are the public application operations consumed by the API layer.
+
+Each use case should be a static class in `Workit.Core/<Feature>/` with nested request, response, validator, and handler types.
+
+```csharp
+public static class RegisterUser
+{
+    public sealed record Request(string Email, string Password) : IRequest<Response>;
+
+    public sealed record Response(UserDto User, string AccessToken, DateTimeOffset ExpiresAt);
+
+    public sealed class RequestValidator : AbstractValidator<Request>
+    {
+        public RequestValidator()
+        {
+            RuleFor(x => x.Email).NotEmpty().EmailAddress().MaximumLength(320);
+            RuleFor(x => x.Password).NotEmpty().MinimumLength(8).MaximumLength(128);
+        }
+    }
+
+    internal sealed class Handler(
+        AppDbContext db,
+        IDataWriter dataWriter,
+        IPasswordHasher passwordHasher,
+        IClock clock)
+        : IRequestHandler<Request, Response>
+    {
+        public async Task<Response> Handle(Request request, CancellationToken cancellationToken)
+        {
+            // Business logic here.
+        }
+    }
+}
+```
+
+Rules:
+
+- Static class name uses an action phrase, such as `RegisterUser`, `LoginUser`, `GetCurrentUser`, or `UpdateProfile`.
+- Request type is named `Request` and implements `IRequest<TResponse>`.
+- Response type is named `Response`.
+- Validator type is named `RequestValidator` when needed.
+- Handler type is named `Handler`, `internal sealed`, and implements `IRequestHandler<Request, Response>`.
+- Use cases must not inject `IMediator` to call other use cases.
+- Validation belongs in FluentValidation unless it is domain invariant logic that belongs on the domain model.
+
+## CQRS Rules
+
+### Commands
+
+Commands create, update, or delete state.
+
+Rules:
+
+- Use `AppDbContext` for tracked write operations.
+- Use `IDataWriter.SaveChangesAsync(...)` for saving changes.
+- Keep write logic inside Core handlers or Core services, not API endpoints.
+- Do not query via `ReadAppDbContext` and then mutate those returned entities.
+- Prefer explicit domain methods or constructors for entity state changes.
+
+### Queries
+
+Queries retrieve data and do not modify state.
+
+Rules:
+
+- Use `ReadAppDbContext` for read-only EF Core queries.
+- Use projections for API responses instead of returning tracked entities.
+- Use `IGenericQuery` only for simple reusable read operations.
+- Do not call `SaveChangesAsync` from query handlers.
+
+## Persistence Boundaries
+
+Current Workit persistence types:
+
+- `AppDbContext`: write context.
+- `ReadAppDbContext`: read context.
+- `IDataWriter`: save abstraction over `AppDbContext`.
+- `IGenericQuery`: simple query abstraction.
+
+Rules:
+
+- Do not mix read-context results with write-context updates.
+- Do not inject `ReadAppDbContext` into command handlers unless the handler is only checking existence or uniqueness and does not mutate returned entities.
+- Do not inject write-side dependencies into pure query handlers.
+- If a command needs data and then writes, load mutable entities through `AppDbContext`.
+- If a query needs complex shaping, use `ReadAppDbContext` directly and project to response records.
+
+## Shared Services
+
+Use shared services when multiple use cases or validators need the same focused operation.
+
+Recommended location:
+
+```text
+Workit.Core/
+  Users/
+    Shared/
+      Services/
+        GetUserByEmailQuery.cs
+```
+
+Rules:
+
+- Keep services single-purpose.
+- Keep service interfaces in Core.
+- Services are private application infrastructure; do not consume them from `Workit.Api`.
+- Prefer feature-local services before moving logic to `Workit.Core/Shared`.
+- Services implementing `IService<TResponse>` or `IService<TRequest, TResponse>` are auto-registered by `Workit.Core.DependencyInjection`.
+
+Use this service contract shape consistently:
+
+```csharp
+public interface IService<in TRequest, TResponse>
+{
+    Task<TResponse> HandleAsync(TRequest request, CancellationToken cancellationToken = default);
+}
+
+public interface IService<TResponse>
+{
+    Task<TResponse> HandleAsync(CancellationToken cancellationToken = default);
+}
+```
+
+## Dependency Injection
+
+Core service registration belongs in `Workit.Core/DependencyInjection.cs`.
+
+Current registration responsibilities:
+
+- MediatR handlers from the Core assembly.
+- FluentValidation validators from the Core assembly.
+- Pipeline behaviors such as `ValidationBehaviour<,>`.
+- `IDataWriter` and persistence abstractions.
+- Cross-cutting services such as `IPasswordHasher` and `IClock`.
+
+Rules:
+
+- Register cross-cutting services in `AddCoreServices`.
+- Do not register feature handlers manually when assembly scanning handles them.
+- Add automatic service scanning only once and keep it inside Core.
+- API startup should compose infrastructure; it should not own business service registration.
+
+## Refactoring Target
+
+Existing endpoints may still contain direct business logic. When touching those paths, move toward this target:
+
+1. Endpoint binds HTTP input and calls `IMediator`.
+2. Core use case validates and executes business logic.
+3. Commands write through `AppDbContext` plus `IDataWriter.SaveChangesAsync`.
+4. Queries read through `ReadAppDbContext`.
+5. Reused logic moves into focused Core services.

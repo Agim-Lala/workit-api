@@ -1,0 +1,108 @@
+---
+description: Core .NET, C#, ASP.NET Core, EF Core, API, validation, performance, security, and documentation rules for Workit.
+alwaysApply: true
+---
+
+# .NET Development Rules
+
+Treat all Workit code as production .NET backend code. Prefer concise, idiomatic C# that follows ASP.NET Core, Entity Framework Core, and Microsoft coding conventions.
+
+### Code Style
+
+Rules:
+
+- Write clear, direct C# with accurate names and minimal ceremony.
+- Use object-oriented and functional patterns where they make the code easier to reason about.
+- Prefer LINQ and lambda expressions for collection operations when they remain readable.
+- Use `var` when the type is obvious from the right-hand side.
+- Use nullable reference types deliberately; do not suppress nullability warnings without a reason.
+- Prefer records for request, response, value, and immutable domain shapes.
+- Prefer sealed classes for concrete handlers, services, and infrastructure implementations unless inheritance is required.
+- Keep files organized by Workit's vertical slice conventions, not generic MVC folders.
+
+### Naming
+
+Rules:
+
+- Use PascalCase for types, methods, properties, records, enum members, and public members.
+- Use camelCase for local variables and parameters.
+- Use `_camelCase` only for private fields when a field is necessary.
+- Prefix interfaces with `I`, such as `IPasswordHasher`.
+- Use PascalCase for constants, such as `MaxAllowedAttempts`.
+- Use descriptive boolean names, such as `isUserSignedIn`, `hasPermission`, or `emailExists`.
+
+### C# And .NET Usage
+
+Rules:
+
+- Target the current project platform, .NET 9.
+- Use modern C# features when they improve clarity, including records, pattern matching, primary constructors, collection expressions, and null-coalescing operators.
+- Use ASP.NET Core middleware and endpoint features instead of custom plumbing where built-in features fit.
+- Use Entity Framework Core intentionally: project read models, avoid unnecessary tracking, and keep query execution explicit.
+- Use asynchronous APIs for I/O-bound work.
+- Always pass `CancellationToken` through async database, mediator, cache, HTTP, and background job operations when available.
+
+### Error Handling And Validation
+
+Rules:
+
+- Use exceptions for exceptional cases, not normal control flow.
+- Use domain or application exceptions for business errors that should be handled consistently.
+- Use global exception handling in `Workit.Api` for consistent HTTP responses.
+- Use FluentValidation for use case request validation.
+- Keep validation that requires external data in validators or Core services.
+- Keep entity invariants in domain models.
+- Return appropriate HTTP status codes from endpoints.
+- Log meaningful operational failures with Serilog or the configured .NET logging abstractions.
+
+### API Design
+
+Rules:
+
+- Use Workit's minimal API endpoint mapping style, not MVC controllers, unless the project intentionally adopts controllers later.
+- Follow RESTful route naming and HTTP method semantics.
+- Keep route groups feature-oriented.
+- Use `.WithName(...)`, `.WithTags(...)`, and Swagger/OpenAPI metadata on endpoints.
+- Add API versioning only when the project has a real compatibility requirement.
+- Keep cross-cutting HTTP behavior in middleware, filters, endpoint filters, or shared endpoint helpers.
+
+### Performance
+
+Rules:
+
+- Avoid N+1 database query patterns.
+- Project query results directly into response records or DTOs.
+- Use pagination for large result sets.
+- Use `AsNoTracking` for read queries when using a normal tracking DbContext; `ReadAppDbContext` is configured for no-tracking reads.
+- Use `IMemoryCache`, Redis, or distributed caching only when there is a clear repeated-read or expensive-computation benefit.
+- Avoid loading whole aggregates or tables when a projection or filtered query is enough.
+
+### Security
+
+Rules:
+
+- Use ASP.NET Core authentication and authorization middleware.
+- Use JWT bearer authentication for stateless API authentication.
+- Require authorization by default for protected feature endpoints.
+- Keep CORS explicit and environment-aware.
+- Do not log secrets, tokens, passwords, connection strings, or personally sensitive payloads.
+- Keep password hashing behind `IPasswordHasher`.
+- Validate and normalize externally supplied identifiers and user input at application boundaries.
+
+### Testing
+
+Rules:
+
+- Use xUnit for tests.
+- Use NSubstitute for mocks when mocking is needed.
+- Prefer focused unit tests for domain behavior, validators, and handler logic.
+- Use integration tests for API endpoints, persistence behavior, and command/query flows that depend on EF Core.
+- Contract-like API tests should verify status codes, response shapes, authentication behavior, and important error responses.
+
+### Documentation
+
+Rules:
+
+- Use Swagger/OpenAPI metadata for public API documentation.
+- Keep examples and docs aligned with Workit's minimal API, MediatR, EF Core, and vertical slice architecture.
+- Prefer official Microsoft and ASP.NET Core guidance when a framework behavior is unclear.
