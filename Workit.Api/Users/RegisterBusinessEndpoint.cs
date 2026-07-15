@@ -1,21 +1,22 @@
 using MediatR;
 using Workit.Api.Common.Routing;
-using Workit.Core.Users;
+using Workit.Core.Businesses;
 
 namespace Workit.Api.Users;
 
-public sealed class RegisterUserEndpoint : IRouteMapper
+public sealed class RegisterBusinessEndpoint : IRouteMapper
 {
     public void MapRoutes(IEndpointRouteBuilder app)
     {
-        app.MapPost("/auth/register", RegisterAsync)
+        app.MapPost("/auth/register/business", RegisterAsync)
             .AllowAnonymous()
-            .WithName(nameof(RegisterUser))
+            .Produces<RegisterBusiness.Response>(StatusCodes.Status201Created)
+            .WithName(nameof(RegisterBusiness))
             .WithTags("Auth");
     }
 
     private static async Task<IResult> RegisterAsync(
-        RegisterUser.Request request,
+        RegisterBusiness.Request request,
         IMediator mediator,
         CancellationToken cancellationToken)
     {
