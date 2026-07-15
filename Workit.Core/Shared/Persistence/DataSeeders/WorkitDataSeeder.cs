@@ -50,6 +50,7 @@ public sealed class WorkitDataSeeder(
     private async Task SeedBusinessWithJobOpeningAsync(CancellationToken cancellationToken)
     {
         var now = clock.UtcNow;
+        var nextWeekUtc = new DateTimeOffset(now.UtcDateTime.Date, TimeSpan.Zero).AddDays(7);
         var businessUser = await SeedUserAsync("business@workit.al", UserRole.Business, cancellationToken);
         var businessProfile = await db.Set<BusinessProfile>()
             .SingleOrDefaultAsync(profile => profile.UserId == businessUser.Id, cancellationToken);
@@ -88,8 +89,8 @@ public sealed class WorkitDataSeeder(
             6m,
             PayType.Hourly,
             JobScheduleType.RecurringWeekly,
-            now.Date.AddDays(7).AddHours(17),
-            now.Date.AddDays(37).AddHours(23),
+            nextWeekUtc.AddHours(17),
+            nextWeekUtc.AddDays(30).AddHours(23),
             4,
             now));
     }
