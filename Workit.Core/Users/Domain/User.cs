@@ -9,7 +9,7 @@ public sealed class User
     public Guid Id { get; private set; } = Guid.NewGuid();
     public string Email { get; private set; } = string.Empty;
     public string PasswordHash { get; private set; } = string.Empty;
-    public UserRole Role { get; private set; } = UserRole.User;
+    public UserRole Role { get; private set; } = UserRole.Worker;
     public DateTimeOffset CreatedAt { get; private set; } = DateTimeOffset.UtcNow;
 
     private User()
@@ -20,7 +20,7 @@ public sealed class User
         string email,
         string passwordHash,
         DateTimeOffset createdAt,
-        UserRole role = UserRole.User)
+        UserRole role = UserRole.Worker)
     {
         Email = NormalizeEmail(email);
         PasswordHash = passwordHash;

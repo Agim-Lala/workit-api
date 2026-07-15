@@ -15,7 +15,7 @@ public sealed class WorkitDataSeeder(
 
     public async Task SeedAsync(CancellationToken cancellationToken = default)
     {
-        await SeedUserAsync("user@workit.al", UserRole.User, cancellationToken);
+        await SeedUserAsync("user@workit.al", UserRole.Worker, cancellationToken);
         await SeedUserAsync("admin@workit.al", UserRole.Admin, cancellationToken);
         await db.SaveChangesAsync(cancellationToken);
     }

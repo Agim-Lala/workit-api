@@ -48,15 +48,33 @@ Open Swagger at `http://localhost:5187/swagger`.
 
 ## Auth Endpoints
 
-Register:
+Register a worker:
 
 ```http
-POST /auth/register
+POST /auth/register/worker
 Content-Type: application/json
 
 {
-  "email": "user@example.com",
-  "password": "password123"
+  "email": "worker@example.com",
+  "password": "password123",
+  "firstName": "Test",
+  "lastName": "Worker"
+}
+```
+
+Register a business:
+
+```http
+POST /auth/register/business
+Content-Type: application/json
+
+{
+  "email": "business@example.com",
+  "password": "password123",
+  "businessName": "Test Business",
+  "fullAddress": "Rruga Test, Tirane",
+  "latitude": 41.3275,
+  "longitude": 19.8189
 }
 ```
 

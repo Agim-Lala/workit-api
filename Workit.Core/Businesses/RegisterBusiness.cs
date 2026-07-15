@@ -2,6 +2,7 @@ using FluentValidation;
 using MediatR;
 using Microsoft.EntityFrameworkCore;
 using Npgsql;
+using Workit.Core.Businesses.Domain;
 using Workit.Core.Shared.EnvironmentUtils;
 using Workit.Core.Shared.Exceptions;
 using Workit.Core.Shared.PasswordHashers;
@@ -12,11 +13,18 @@ using Workit.Core.Shared.Tokens;
 using Workit.Core.Users.Domain;
 using Workit.Core.Users.Shared;
 
-namespace Workit.Core.Users;
+namespace Workit.Core.Businesses;
 
-public static class RegisterUser
+public static class RegisterBusiness
 {
-    public sealed record Request(string Email, string Password) : IRequest<Response>;
+    public sealed record Request(
+        string Email,
+        string Password,
+        string BusinessName,
+        string FullAddress,
+        decimal Latitude,
+        decimal Longitude,
+        string? Phone = null) : IRequest<Response>;
 
     public sealed record Response(UserDto User, string AccessToken, DateTimeOffset ExpiresAt);
 
@@ -40,6 +48,24 @@ public static class RegisterUser
                 .NotEmpty()
                 .MinimumLength(8)
                 .MaximumLength(128);
+
+            RuleFor(request => request.BusinessName)
+                .NotEmpty()
+                .MaximumLength(BusinessProfile.MaxBusinessNameLength);
+
+            RuleFor(request => request.FullAddress)
+                .NotEmpty()
+                .MaximumLength(BusinessProfile.MaxFullAddressLength);
+
+            RuleFor(request => request.Latitude)
+                .InclusiveBetween(-90m, 90m);
+
+            RuleFor(request => request.Longitude)
+                .InclusiveBetween(-180m, 180m);
+
+            RuleFor(request => request.Phone)
+                .MaximumLength(BusinessProfile.MaxPhoneLength)
+                .When(request => !string.IsNullOrWhiteSpace(request.Phone));
         }
 
         private async Task<bool> BeAvailableEmail(string email, CancellationToken cancellationToken)
@@ -60,15 +86,26 @@ public static class RegisterUser
     {
         public async Task<Response> Handle(Request request, CancellationToken cancellationToken)
         {
+            var now = clock.UtcNow;
             var user = new User(
                 request.Email,
                 passwordHasher.Hash(request.Password),
-                clock.UtcNow);
+                now,
+                UserRole.Business);
+            var businessProfile = new BusinessProfile(
+                user.Id,
+                request.BusinessName,
+                request.FullAddress,
+                request.Latitude,
+                request.Longitude,
+                now,
+                request.Phone);
 
             try
             {
                 await dataWriter
                     .Add(user)
+                    .Add(businessProfile)
                     .SaveAsync(cancellationToken);
             }
             catch (DbUpdateException exception) when (IsUniqueViolation(exception))
@@ -76,7 +113,7 @@ public static class RegisterUser
                 throw new DomainException("Email already registered.");
             }
 
-            return CreateResponse(user, clock.UtcNow, accessTokenCreator, settings);
+            return CreateResponse(user, now, accessTokenCreator, settings);
         }
 
         private static Response CreateResponse(
