@@ -8,24 +8,20 @@ using Workit.Core.JobOpenings.Domain;
 
 namespace Workit.Api.JobOpenings;
 
-public sealed class GetJobOpeningsEndpoint : IRouteMapper
+public sealed class GetBusinessJobOpeningsEndpoint : IRouteMapper
 {
     public sealed record Query(
         int Page = 1,
         int PageSize = 25,
-        Guid? BusinessProfileId = null,
-        JobOpeningStatus? Status = null,
-        JobType? JobType = null,
-        DateOnly? OnDate = null,
-        ShiftType? ShiftType = null);
+        JobOpeningStatus? Status = null);
 
     public void MapRoutes(IEndpointRouteBuilder app)
     {
-        app.MapGet("/job-openings", GetAsync)
-            .RequireAuthorization(AuthorizationPolicies.WorkerOnly)
-            .Produces<GetJobOpenings.Response>()
+        app.MapGet("/business/job-openings", GetAsync)
+            .RequireAuthorization(AuthorizationPolicies.BusinessOnly)
+            .Produces<GetBusinessJobOpenings.Response>()
             .Produces(StatusCodes.Status401Unauthorized)
-            .WithName(nameof(GetJobOpenings))
+            .WithName(nameof(GetBusinessJobOpenings))
             .WithTags("Job Openings");
     }
 
@@ -35,21 +31,17 @@ public sealed class GetJobOpeningsEndpoint : IRouteMapper
         IMediator mediator,
         CancellationToken cancellationToken)
     {
-        if (!Guid.TryParse(user.FindFirstValue(ClaimTypes.NameIdentifier), out var workerUserId))
+        if (!Guid.TryParse(user.FindFirstValue(ClaimTypes.NameIdentifier), out var businessUserId))
         {
             return Results.Unauthorized();
         }
 
         var response = await mediator.Send(
-            new GetJobOpenings.Request(
-                workerUserId,
+            new GetBusinessJobOpenings.Request(
+                businessUserId,
                 query.Page,
                 query.PageSize,
-                query.BusinessProfileId,
-                query.Status,
-                query.JobType,
-                query.OnDate,
-                query.ShiftType),
+                query.Status),
             cancellationToken);
 
         return Results.Ok(response);

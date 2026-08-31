@@ -23,6 +23,10 @@ public sealed class WorkerProfileConfiguration : IEntityTypeConfiguration<Worker
         builder.Property(workerProfile => workerProfile.Phone)
             .HasMaxLength(WorkerProfile.MaxPhoneLength);
 
+        builder.Property(workerProfile => workerProfile.Location)
+            .HasMaxLength(WorkerProfile.MaxLocationLength)
+            .IsRequired();
+
         builder.Property(workerProfile => workerProfile.CreatedAt)
             .IsRequired();
 

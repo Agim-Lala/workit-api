@@ -6,6 +6,7 @@ using Microsoft.EntityFrameworkCore;
 using Microsoft.IdentityModel.Tokens;
 using Microsoft.OpenApi.Models;
 using Serilog;
+using Workit.Api.Common.Auth;
 using Workit.Api.Common.Persistence;
 using Workit.Api.Common.Routing;
 using Workit.Api.Common.Swagger;
@@ -69,7 +70,7 @@ builder.Services
         };
     });
 
-builder.Services.AddAuthorization();
+builder.Services.AddAuthorization(AuthorizationPolicies.AddWorkitPolicies);
 
 builder.Services.AddDbContext<AppDbContext>(options =>
 {

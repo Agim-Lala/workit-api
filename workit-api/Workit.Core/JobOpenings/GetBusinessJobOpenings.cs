@@ -1,24 +1,20 @@
 using MediatR;
 using Microsoft.EntityFrameworkCore;
+using Workit.Core.Businesses.Domain;
 using Workit.Core.JobOpenings.Domain;
 using Workit.Core.Shared.Exceptions;
 using Workit.Core.Shared.Persistence;
 using Workit.Core.Shared.Requests;
-using Workit.Core.Workers.Domain;
 
 namespace Workit.Core.JobOpenings;
 
-public static class GetJobOpenings
+public static class GetBusinessJobOpenings
 {
     public sealed record Request(
-        Guid WorkerUserId,
+        Guid BusinessUserId,
         int Page = 1,
         int PageSize = 25,
-        Guid? BusinessProfileId = null,
-        JobOpeningStatus? Status = null,
-        JobType? JobType = null,
-        DateOnly? OnDate = null,
-        ShiftType? ShiftType = null)
+        JobOpeningStatus? Status = null)
         : PagedRequest(Page, PageSize), IRequest<Response>;
 
     public sealed record Response(
@@ -53,53 +49,28 @@ public static class GetJobOpenings
     {
         public async Task<Response> Handle(Request request, CancellationToken cancellationToken)
         {
+            var businessProfileId = await db.Set<BusinessProfile>()
+                .Where(profile => profile.UserId == request.BusinessUserId)
+                .Select(profile => profile.Id)
+                .SingleOrDefaultAsync(cancellationToken);
+
+            if (businessProfileId == Guid.Empty)
+            {
+                throw new NotFoundException("Business profile not found.");
+            }
+
             var page = request.SafePage;
             var pageSize = request.SafePageSize;
-            var workerLocation = await db.Set<WorkerProfile>()
-                .Where(profile => profile.UserId == request.WorkerUserId)
-                .Select(profile => profile.Location)
-                .SingleOrDefaultAsync(cancellationToken)
-                ?? throw new NotFoundException("Worker profile not found.");
-            var query = db.Set<JobOpening>().AsQueryable();
-
-            if (!string.IsNullOrWhiteSpace(workerLocation))
-            {
-                var normalizedLocation = workerLocation.Trim().ToLower();
-                query = query.Where(jobOpening =>
-                    jobOpening.Location.ToLower().Contains(normalizedLocation));
-            }
-
-            if (request.BusinessProfileId.HasValue)
-            {
-                query = query.Where(jobOpening => jobOpening.BusinessProfileId == request.BusinessProfileId);
-            }
+            var query = db.Set<JobOpening>()
+                .Where(jobOpening => jobOpening.BusinessProfileId == businessProfileId);
 
             if (request.Status.HasValue)
             {
                 query = query.Where(jobOpening => jobOpening.Status == request.Status);
             }
 
-            if (request.JobType.HasValue)
-            {
-                query = query.Where(jobOpening => jobOpening.JobType == request.JobType);
-            }
-
-            if (request.OnDate.HasValue)
-            {
-                var onDate = request.OnDate.Value;
-                query = query.Where(jobOpening =>
-                    jobOpening.StartDate <= onDate
-                    && (!jobOpening.EndDate.HasValue || jobOpening.EndDate >= onDate));
-            }
-
-            if (request.ShiftType.HasValue)
-            {
-                query = query.Where(jobOpening => jobOpening.ShiftType == request.ShiftType);
-            }
-
             query = query
-                .OrderBy(jobOpening => jobOpening.StartDate)
-                .ThenBy(jobOpening => jobOpening.ShiftStartTime)
+                .OrderByDescending(jobOpening => jobOpening.CreatedAt)
                 .ThenBy(jobOpening => jobOpening.Id);
 
             var totalCount = await query.CountAsync(cancellationToken);

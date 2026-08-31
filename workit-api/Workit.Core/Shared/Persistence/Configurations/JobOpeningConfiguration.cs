@@ -9,7 +9,20 @@ public sealed class JobOpeningConfiguration : IEntityTypeConfiguration<JobOpenin
 {
     public void Configure(EntityTypeBuilder<JobOpening> builder)
     {
-        builder.ToTable("job_openings");
+        builder.ToTable("job_openings", table =>
+        {
+            table.HasCheckConstraint(
+                "CK_job_openings_date_range",
+                "(\"JobType\" = 'Permanent' AND \"EndDate\" IS NULL) OR "
+                + "(\"JobType\" IN ('Project', 'ShortTerm') AND \"EndDate\" IS NOT NULL "
+                + "AND \"EndDate\" >= \"StartDate\")");
+            table.HasCheckConstraint(
+                "CK_job_openings_shift",
+                "(\"ShiftType\" = 'CustomHours' AND \"ShiftStartTime\" IS NOT NULL "
+                + "AND \"ShiftEndTime\" IS NOT NULL AND \"ShiftStartTime\" <> \"ShiftEndTime\") OR "
+                + "(\"ShiftType\" IN ('Morning', 'Evening') AND \"ShiftStartTime\" IS NULL "
+                + "AND \"ShiftEndTime\" IS NULL)");
+        });
         builder.HasKey(jobOpening => jobOpening.Id);
 
         builder.Property(jobOpening => jobOpening.Title)
@@ -37,12 +50,17 @@ public sealed class JobOpeningConfiguration : IEntityTypeConfiguration<JobOpenin
             .HasMaxLength(32)
             .IsRequired();
 
-        builder.Property(jobOpening => jobOpening.ScheduleType)
+        builder.Property(jobOpening => jobOpening.JobType)
             .HasConversion<string>()
             .HasMaxLength(32)
             .IsRequired();
 
-        builder.Property(jobOpening => jobOpening.StartsAt)
+        builder.Property(jobOpening => jobOpening.StartDate)
+            .IsRequired();
+
+        builder.Property(jobOpening => jobOpening.ShiftType)
+            .HasConversion<string>()
+            .HasMaxLength(32)
             .IsRequired();
 
         builder.Property(jobOpening => jobOpening.RequiredWorkersCount)
@@ -58,7 +76,13 @@ public sealed class JobOpeningConfiguration : IEntityTypeConfiguration<JobOpenin
 
         builder.HasIndex(jobOpening => jobOpening.BusinessProfileId);
         builder.HasIndex(jobOpening => jobOpening.Status);
-        builder.HasIndex(jobOpening => jobOpening.StartsAt);
+        builder.HasIndex(jobOpening => jobOpening.StartDate);
+        builder.HasIndex(jobOpening => new
+        {
+            jobOpening.JobType,
+            jobOpening.StartDate,
+            jobOpening.EndDate
+        });
 
         builder.HasOne<BusinessProfile>()
             .WithMany()

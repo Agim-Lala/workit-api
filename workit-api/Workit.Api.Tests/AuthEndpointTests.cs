@@ -14,6 +14,7 @@ using Shouldly;
 using Workit.Core.Businesses;
 using Workit.Core.Businesses.Domain;
 using Workit.Core.Shared.Persistence;
+using Workit.Core.Shared.Tokens;
 using Workit.Core.Users;
 using Workit.Core.Users.Domain;
 using Workit.Core.Workers;
@@ -32,7 +33,8 @@ public sealed class AuthEndpointTests
             "user@example.com",
             "password123",
             "Test",
-            "Worker");
+            "Worker",
+            "Tirana");
 
         var registerResponse = await client.PostAsJsonAsync("/auth/register/worker", request);
         var loginResponse = await client.PostAsJsonAsync("/auth/login", new LoginUser.Request(request.Email, request.Password));
@@ -58,6 +60,7 @@ public sealed class AuthEndpointTests
         workerProfile.UserId.ShouldBe(registerPayload.User.Id);
         workerProfile.FirstName.ShouldBe("Test");
         workerProfile.LastName.ShouldBe("Worker");
+        workerProfile.Location.ShouldBe("Tirana");
     }
 
     [Fact]
@@ -91,6 +94,24 @@ public sealed class AuthEndpointTests
     }
 
     [Fact]
+    public async Task Register_worker_requires_a_location()
+    {
+        await using var factory = CreateFactory();
+        using var client = factory.CreateClient();
+
+        var response = await client.PostAsJsonAsync(
+            "/auth/register/worker",
+            new RegisterWorker.Request(
+                "worker-without-location@example.com",
+                "password123",
+                "Test",
+                "Worker",
+                ""));
+
+        response.StatusCode.ShouldBe(HttpStatusCode.BadRequest);
+    }
+
+    [Fact]
     public async Task Register_returns_bad_request_when_email_already_exists()
     {
         await using var factory = CreateFactory();
@@ -98,7 +119,7 @@ public sealed class AuthEndpointTests
 
         var firstResponse = await client.PostAsJsonAsync(
             "/auth/register/worker",
-            new RegisterWorker.Request("user@example.com", "password123", "Test", "Worker"));
+            new RegisterWorker.Request("user@example.com", "password123", "Test", "Worker", "Tirana"));
         var secondResponse = await client.PostAsJsonAsync(
             "/auth/register/business",
             new RegisterBusiness.Request(
@@ -125,17 +146,37 @@ public sealed class AuthEndpointTests
     }
 
     [Fact]
-    public async Task Get_users_returns_paginated_users()
+    public async Task Get_users_rejects_non_admin_users()
     {
         await using var factory = CreateFactory();
         using var client = factory.CreateClient();
         var registerResponse = await client.PostAsJsonAsync(
             "/auth/register/worker",
-            new RegisterWorker.Request("user@example.com", "password123", "Test", "Worker"));
+            new RegisterWorker.Request("user@example.com", "password123", "Test", "Worker", "Tirana"));
         var authPayload = await registerResponse.Content.ReadFromJsonAsync<RegisterWorker.Response>();
         authPayload.ShouldNotBeNull();
 
         client.DefaultRequestHeaders.Authorization = new AuthenticationHeaderValue("Bearer", authPayload.AccessToken);
+
+        var response = await client.GetAsync("/users?page=1&pageSize=10");
+
+        response.StatusCode.ShouldBe(HttpStatusCode.Forbidden);
+    }
+
+    [Fact]
+    public async Task Get_users_returns_paginated_users_for_admin()
+    {
+        await using var factory = CreateFactory();
+        using var client = factory.CreateClient();
+        var registerResponse = await client.PostAsJsonAsync(
+            "/auth/register/worker",
+            new RegisterWorker.Request("user@example.com", "password123", "Test", "Worker", "Tirana"));
+        var authPayload = await registerResponse.Content.ReadFromJsonAsync<RegisterWorker.Response>();
+        authPayload.ShouldNotBeNull();
+
+        client.DefaultRequestHeaders.Authorization = new AuthenticationHeaderValue(
+            "Bearer",
+            CreateAccessToken(factory, UserRole.Admin));
 
         var response = await client.GetAsync("/users?page=1&pageSize=10");
 
@@ -178,6 +219,19 @@ public sealed class AuthEndpointTests
                         .UseInternalServiceProvider(inMemoryProvider));
                 });
             });
+    }
+
+    private static string CreateAccessToken(WebApplicationFactory<Program> factory, UserRole role)
+    {
+        using var scope = factory.Services.CreateScope();
+        var accessTokenCreator = scope.ServiceProvider.GetRequiredService<IAccessTokenCreator>();
+        var user = new User(
+            $"{role.ToString().ToLowerInvariant()}@example.com",
+            "password-hash",
+            DateTimeOffset.UtcNow,
+            role);
+
+        return accessTokenCreator.Create(user, DateTimeOffset.UtcNow.AddMinutes(30));
     }
 
     private static string? GetRoleFromToken(string accessToken)

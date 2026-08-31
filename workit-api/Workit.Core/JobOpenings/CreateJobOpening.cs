@@ -14,16 +14,19 @@ namespace Workit.Core.JobOpenings;
 public static class CreateJobOpening
 {
     public sealed record Request(
-        Guid BusinessProfileId,
+        Guid BusinessUserId,
         string Title,
         string Description,
         string Role,
         string Location,
         decimal PayAmount,
         PayType PayType,
-        JobScheduleType ScheduleType,
-        DateTimeOffset StartsAt,
-        DateTimeOffset? EndsAt,
+        JobType JobType,
+        DateOnly StartDate,
+        DateOnly? EndDate,
+        ShiftType ShiftType,
+        TimeOnly? ShiftStartTime,
+        TimeOnly? ShiftEndTime,
         int RequiredWorkersCount) : IRequest<Response>;
 
     public sealed record Response(
@@ -35,25 +38,22 @@ public static class CreateJobOpening
         string Location,
         decimal PayAmount,
         PayType PayType,
-        JobScheduleType ScheduleType,
-        DateTimeOffset StartsAt,
-        DateTimeOffset? EndsAt,
+        JobType JobType,
+        DateOnly StartDate,
+        DateOnly? EndDate,
+        ShiftType ShiftType,
+        TimeOnly? ShiftStartTime,
+        TimeOnly? ShiftEndTime,
         int RequiredWorkersCount,
         JobOpeningStatus Status,
         DateTimeOffset CreatedAt);
 
     public sealed class RequestValidator : AbstractValidator<Request>
     {
-        private readonly ReadAppDbContext db;
-
-        public RequestValidator(ReadAppDbContext db)
+        public RequestValidator()
         {
-            this.db = db;
-
-            RuleFor(request => request.BusinessProfileId)
-                .NotEmpty()
-                .MustAsync(ExistBusinessProfile)
-                .WithMessage("Business profile not found.");
+            RuleFor(request => request.BusinessUserId)
+                .NotEmpty();
 
             RuleFor(request => request.Title)
                 .NotEmpty()
@@ -77,47 +77,96 @@ public static class CreateJobOpening
             RuleFor(request => request.PayType)
                 .IsInEnum();
 
-            RuleFor(request => request.ScheduleType)
+            RuleFor(request => request.JobType)
                 .IsInEnum();
 
-            RuleFor(request => request.StartsAt)
+            RuleFor(request => request.StartDate)
                 .NotEmpty();
 
-            RuleFor(request => request.EndsAt)
-                .GreaterThan(request => request.StartsAt)
-                .When(request => request.EndsAt.HasValue);
+            RuleFor(request => request.EndDate)
+                .Null()
+                .When(request => request.JobType == JobType.Permanent)
+                .WithMessage("Permanent jobs cannot have an end date.");
+
+            RuleFor(request => request.EndDate)
+                .NotNull()
+                .When(request => request.JobType is JobType.Project or JobType.ShortTerm)
+                .WithMessage("Project and short-term jobs require an end date.");
+
+            RuleFor(request => request.EndDate)
+                .GreaterThanOrEqualTo(request => request.StartDate)
+                .When(request => request.EndDate.HasValue);
+
+            RuleFor(request => request.ShiftType)
+                .IsInEnum();
+
+            RuleFor(request => request.ShiftStartTime)
+                .NotNull()
+                .When(request => request.ShiftType == ShiftType.CustomHours)
+                .WithMessage("Custom-hours shifts require a start time.");
+
+            RuleFor(request => request.ShiftEndTime)
+                .NotNull()
+                .When(request => request.ShiftType == ShiftType.CustomHours)
+                .WithMessage("Custom-hours shifts require an end time.");
+
+            RuleFor(request => request)
+                .Must(request => request.ShiftStartTime != request.ShiftEndTime)
+                .When(request => request.ShiftType == ShiftType.CustomHours
+                    && request.ShiftStartTime.HasValue
+                    && request.ShiftEndTime.HasValue)
+                .WithName(nameof(Request.ShiftEndTime))
+                .WithMessage("Custom-hours shift start and end times must be different.");
+
+            RuleFor(request => request.ShiftStartTime)
+                .Null()
+                .When(request => request.ShiftType != ShiftType.CustomHours)
+                .WithMessage("Morning and evening shifts cannot include custom hours.");
+
+            RuleFor(request => request.ShiftEndTime)
+                .Null()
+                .When(request => request.ShiftType != ShiftType.CustomHours)
+                .WithMessage("Morning and evening shifts cannot include custom hours.");
 
             RuleFor(request => request.RequiredWorkersCount)
                 .GreaterThan(0)
                 .LessThanOrEqualTo(1000);
         }
-
-        private async Task<bool> ExistBusinessProfile(Guid businessProfileId, CancellationToken cancellationToken)
-        {
-            return await db.Set<BusinessProfile>()
-                .AnyAsync(businessProfile => businessProfile.Id == businessProfileId, cancellationToken);
-        }
     }
 
     internal sealed class Handler(
+        AppDbContext db,
         IDataWriter dataWriter,
         IClock clock)
         : IRequestHandler<Request, Response>
     {
         public async Task<Response> Handle(Request request, CancellationToken cancellationToken)
         {
+            var businessProfileId = await db.Set<BusinessProfile>()
+                .Where(businessProfile => businessProfile.UserId == request.BusinessUserId)
+                .Select(businessProfile => businessProfile.Id)
+                .SingleOrDefaultAsync(cancellationToken);
+
+            if (businessProfileId == Guid.Empty)
+            {
+                throw new NotFoundException("Business profile not found.");
+            }
+
             var now = clock.UtcNow;
             var jobOpening = new JobOpening(
-                request.BusinessProfileId,
+                businessProfileId,
                 request.Title,
                 request.Description,
                 request.Role,
                 request.Location,
                 request.PayAmount,
                 request.PayType,
-                request.ScheduleType,
-                request.StartsAt,
-                request.EndsAt,
+                request.JobType,
+                request.StartDate,
+                request.EndDate,
+                request.ShiftType,
+                request.ShiftStartTime,
+                request.ShiftEndTime,
                 request.RequiredWorkersCount,
                 now);
 
@@ -141,9 +190,12 @@ public static class CreateJobOpening
                 jobOpening.Location,
                 jobOpening.PayAmount,
                 jobOpening.PayType,
-                jobOpening.ScheduleType,
-                jobOpening.StartsAt,
-                jobOpening.EndsAt,
+                jobOpening.JobType,
+                jobOpening.StartDate,
+                jobOpening.EndDate,
+                jobOpening.ShiftType,
+                jobOpening.ShiftStartTime,
+                jobOpening.ShiftEndTime,
                 jobOpening.RequiredWorkersCount,
                 jobOpening.Status,
                 jobOpening.CreatedAt);

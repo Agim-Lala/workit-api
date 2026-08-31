@@ -22,6 +22,7 @@ public static class RegisterWorker
         string Password,
         string FirstName,
         string LastName,
+        string Location,
         string? Phone = null) : IRequest<Response>;
 
     public sealed record Response(UserDto User, string AccessToken, DateTimeOffset ExpiresAt);
@@ -54,6 +55,10 @@ public static class RegisterWorker
             RuleFor(request => request.LastName)
                 .NotEmpty()
                 .MaximumLength(WorkerProfile.MaxNameLength);
+
+            RuleFor(request => request.Location)
+                .NotEmpty()
+                .MaximumLength(WorkerProfile.MaxLocationLength);
 
             RuleFor(request => request.Phone)
                 .MaximumLength(WorkerProfile.MaxPhoneLength)
@@ -88,6 +93,7 @@ public static class RegisterWorker
                 user.Id,
                 request.FirstName,
                 request.LastName,
+                request.Location,
                 now,
                 request.Phone);
 
