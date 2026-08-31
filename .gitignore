@@ -13,10 +13,19 @@ obj/
 *.log
 
 .env
-Workit.Api/.env
-Workit.Api/Properties/launchSettings.json
-Workit.Api/global.json
+workit-api/.env
+workit-api/Workit.Api/.env
+workit-api/Workit.Api/Properties/launchSettings.json
+workit-api/Workit.Api/global.json
+workit-frontend/node_modules/
+workit-frontend/dist/
+workit-frontend/.env
+workit-frontend/.env.local
 
 TestResult.xml
 [Tt]est[Rr]esult*/
 coverage/
+workit-frontend/coverage/
+
+# frontend lives in its own repo (workit-frontend.git)
+workit-frontend/
