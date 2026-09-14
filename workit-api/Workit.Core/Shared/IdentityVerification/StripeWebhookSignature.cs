@@ -5,17 +5,13 @@ using System.Text;
 namespace Workit.Core.Shared.IdentityVerification;
 
 /// <summary>
-/// Verifies the <c>Persona-Signature</c> header Persona sends with each webhook delivery:
+/// Verifies the <c>Stripe-Signature</c> header Stripe sends with each webhook delivery:
 /// <c>t=&lt;unix-seconds&gt;,v1=&lt;hex-hmac-sha256&gt;</c> (comma-separated, possibly several
 /// <c>v1=</c> entries when a secret was recently rotated), where the signed value is
-/// <c>"{t}.{rawRequestBody}"</c> hashed with the webhook secret.
-///
-/// NOTE: this mirrors Persona's documented scheme as of when this integration was written, but
-/// could not be re-confirmed against Persona's live docs while writing it — re-check the
-/// "Verifying Webhook Authenticity" guide against this implementation once real Persona
-/// credentials are configured and before relying on it in production.
+/// <c>"{t}.{rawRequestBody}"</c> hashed with the webhook signing secret.
+/// See https://docs.stripe.com/webhooks#verify-manually.
 /// </summary>
-public static class PersonaWebhookSignature
+public static class StripeWebhookSignature
 {
     private static readonly TimeSpan MaxAge = TimeSpan.FromMinutes(5);
 

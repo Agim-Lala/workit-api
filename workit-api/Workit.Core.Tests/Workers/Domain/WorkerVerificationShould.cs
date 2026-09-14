@@ -19,11 +19,11 @@ public sealed class WorkerVerificationShould
         var verification = new WorkerVerification(Guid.NewGuid(), DateTimeOffset.UtcNow);
         var now = DateTimeOffset.UtcNow;
 
-        verification.MarkPending("Persona", "inq_123", now);
+        verification.MarkPending("Stripe", "vs_123", now);
 
         verification.Status.ShouldBe(WorkerVerificationStatus.Pending);
-        verification.Provider.ShouldBe("Persona");
-        verification.ProviderReferenceId.ShouldBe("inq_123");
+        verification.Provider.ShouldBe("Stripe");
+        verification.ProviderReferenceId.ShouldBe("vs_123");
         verification.SubmittedAt.ShouldBe(now);
         verification.DecidedAt.ShouldBeNull();
     }
@@ -32,18 +32,18 @@ public sealed class WorkerVerificationShould
     public void ThrowWhenRestartingAnAlreadyVerifiedInquiry()
     {
         var verification = new WorkerVerification(Guid.NewGuid(), DateTimeOffset.UtcNow);
-        verification.MarkPending("Persona", "inq_123", DateTimeOffset.UtcNow);
+        verification.MarkPending("Stripe", "vs_123", DateTimeOffset.UtcNow);
         verification.MarkVerified(DateTimeOffset.UtcNow);
 
         Should.Throw<InvalidOperationException>(() =>
-            verification.MarkPending("Persona", "inq_456", DateTimeOffset.UtcNow));
+            verification.MarkPending("Stripe", "vs_456", DateTimeOffset.UtcNow));
     }
 
     [Fact]
     public void RecordDecisionWhenVerified()
     {
         var verification = new WorkerVerification(Guid.NewGuid(), DateTimeOffset.UtcNow);
-        verification.MarkPending("Persona", "inq_123", DateTimeOffset.UtcNow);
+        verification.MarkPending("Stripe", "vs_123", DateTimeOffset.UtcNow);
         var decidedAt = DateTimeOffset.UtcNow;
 
         verification.MarkVerified(decidedAt);
@@ -57,7 +57,7 @@ public sealed class WorkerVerificationShould
     public void RecordTruncatedReasonWhenRejected()
     {
         var verification = new WorkerVerification(Guid.NewGuid(), DateTimeOffset.UtcNow);
-        verification.MarkPending("Persona", "inq_123", DateTimeOffset.UtcNow);
+        verification.MarkPending("Stripe", "vs_123", DateTimeOffset.UtcNow);
         var decidedAt = DateTimeOffset.UtcNow;
         var longReason = new string('x', WorkerVerification.MaxRejectionReasonLength + 50);
 
@@ -72,7 +72,7 @@ public sealed class WorkerVerificationShould
     public void AllowNullRejectionReason()
     {
         var verification = new WorkerVerification(Guid.NewGuid(), DateTimeOffset.UtcNow);
-        verification.MarkPending("Persona", "inq_123", DateTimeOffset.UtcNow);
+        verification.MarkPending("Stripe", "vs_123", DateTimeOffset.UtcNow);
 
         verification.MarkRejected(null, DateTimeOffset.UtcNow);
 

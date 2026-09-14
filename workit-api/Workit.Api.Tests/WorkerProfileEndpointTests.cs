@@ -22,7 +22,7 @@ namespace Workit.Api.Tests;
 
 public sealed class WorkerProfileEndpointTests
 {
-    private const string WebhookSecret = "test-persona-webhook-secret";
+    private const string WebhookSecret = "test-stripe-webhook-secret";
 
     [Fact]
     public async Task Update_preferences_returns_and_persists_saved_values()
@@ -187,16 +187,16 @@ public sealed class WorkerProfileEndpointTests
     }
 
     [Fact]
-    public async Task Persona_webhook_marks_the_worker_verified_when_the_signature_is_valid()
+    public async Task Stripe_webhook_marks_the_worker_verified_when_the_signature_is_valid()
     {
         await using var factory = CreateFactory();
         using var client = factory.CreateClient();
         await AuthenticateAsWorkerAsync(client);
         await client.PostAsync("/worker-profile/verification/start", content: null);
-        var inquiryId = await GetProviderReferenceIdAsync(factory);
+        var sessionId = await GetProviderReferenceIdAsync(factory);
 
-        var body = "{\"data\":{\"attributes\":{\"payload\":{\"data\":{\"id\":\"" + inquiryId
-            + "\",\"attributes\":{\"status\":\"approved\"}}}}}}";
+        var body = "{\"type\":\"identity.verification_session.verified\",\"data\":{\"object\":{\"id\":\""
+            + sessionId + "\"}}}";
         using var request = SignedWebhookRequest(body);
 
         var response = await client.SendAsync(request);
@@ -207,16 +207,16 @@ public sealed class WorkerProfileEndpointTests
     }
 
     [Fact]
-    public async Task Persona_webhook_rejects_an_invalid_signature()
+    public async Task Stripe_webhook_rejects_an_invalid_signature()
     {
         await using var factory = CreateFactory();
         using var client = factory.CreateClient();
-        var body = """{"data":{"attributes":{"payload":{"data":{"id":"inq_123","attributes":{"status":"approved"}}}}}}""";
-        using var request = new HttpRequestMessage(HttpMethod.Post, "/webhooks/persona")
+        var body = """{"type":"identity.verification_session.verified","data":{"object":{"id":"vs_123"}}}""";
+        using var request = new HttpRequestMessage(HttpMethod.Post, "/webhooks/stripe-identity")
         {
             Content = new StringContent(body, Encoding.UTF8, "application/json")
         };
-        request.Headers.Add("Persona-Signature", "t=1,v1=deadbeef");
+        request.Headers.Add("Stripe-Signature", "t=1,v1=deadbeef");
 
         var response = await client.SendAsync(request);
 
@@ -230,11 +230,11 @@ public sealed class WorkerProfileEndpointTests
         var hash = HMACSHA256.HashData(Encoding.UTF8.GetBytes(WebhookSecret), Encoding.UTF8.GetBytes(signedPayload));
         var signature = $"t={timestamp},v1={Convert.ToHexStringLower(hash)}";
 
-        var request = new HttpRequestMessage(HttpMethod.Post, "/webhooks/persona")
+        var request = new HttpRequestMessage(HttpMethod.Post, "/webhooks/stripe-identity")
         {
             Content = new StringContent(body, Encoding.UTF8, "application/json")
         };
-        request.Headers.Add("Persona-Signature", signature);
+        request.Headers.Add("Stripe-Signature", signature);
         return request;
     }
 
@@ -291,7 +291,7 @@ public sealed class WorkerProfileEndpointTests
                         .UseInMemoryDatabase(databaseName, databaseRoot)
                         .UseInternalServiceProvider(inMemoryProvider));
 
-                    // Never let tests reach the real Nominatim/Persona third parties.
+                    // Never let tests reach the real Nominatim/Stripe third parties.
                     services.RemoveAll<ICityLookupService>();
                     services.AddSingleton<ICityLookupService>(new FakeCityLookupService(cityLookupResult));
                     services.RemoveAll<IIdentityVerificationProvider>();
@@ -300,7 +300,10 @@ public sealed class WorkerProfileEndpointTests
                     // Give the webhook endpoint a known secret to sign test requests with.
                     services.RemoveAll<WorkitSettings>();
                     var settings = WorkitSettings.FromEnvironment();
-                    services.AddSingleton(settings with { Persona = settings.Persona with { WebhookSecret = WebhookSecret } });
+                    services.AddSingleton(settings with
+                    {
+                        StripeIdentity = settings.StripeIdentity with { WebhookSecret = WebhookSecret },
+                    });
                 });
             });
     }

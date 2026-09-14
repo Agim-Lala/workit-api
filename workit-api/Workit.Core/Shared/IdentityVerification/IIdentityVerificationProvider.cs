@@ -9,7 +9,7 @@ public sealed record VerificationSession(string ProviderReferenceId, string Host
 /// </summary>
 public interface IIdentityVerificationProvider
 {
-    /// <summary>The vendor name stored alongside the verification record, e.g. <c>"Persona"</c>.</summary>
+    /// <summary>The vendor name stored alongside the verification record, e.g. <c>"Stripe"</c>.</summary>
     string ProviderName { get; }
 
     /// <summary>

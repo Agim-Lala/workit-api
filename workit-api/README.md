@@ -152,14 +152,21 @@ All routes below require a worker JWT (`RequireAuthorization(AuthorizationPolici
 - `POST /worker-profile/photo` (multipart, field `file`, JPEG/PNG/WebP, 5MB max)
   and `GET /worker-profile/photo` – upload/download the profile photo.
 - `POST /worker-profile/verification/start` – starts a hosted
-  [Persona](https://withpersona.com) identity-verification inquiry and returns
-  `hostedUrl` to redirect the worker to. Requires `PERSONA_API_KEY` and
-  `PERSONA_INQUIRY_TEMPLATE_ID`; without them the endpoint returns a clear
-  domain error instead of attempting the call.
-- `POST /webhooks/persona` (anonymous, called by Persona) – applies the
-  inquiry's outcome to the worker's verification badge. Requires
-  `PERSONA_WEBHOOK_SECRET`; every delivery's `Persona-Signature` header is
-  verified before the payload is trusted.
+  [Stripe Identity](https://docs.stripe.com/identity) VerificationSession and
+  returns `hostedUrl` to redirect the worker to. Requires `STRIPE_SECRET_KEY`
+  (a free test-mode key works — no minimum spend, no sales call; live mode is
+  pay-per-verification); without it the endpoint returns a clear domain error
+  instead of attempting the call. Get a key by registering at
+  [dashboard.stripe.com/register](https://dashboard.stripe.com/register),
+  activating Identity at
+  [dashboard.stripe.com/identity/application](https://dashboard.stripe.com/identity/application),
+  then copying a test key from
+  [dashboard.stripe.com/test/apikeys](https://dashboard.stripe.com/test/apikeys).
+- `POST /webhooks/stripe-identity` (anonymous, called by Stripe) – applies the
+  VerificationSession's outcome to the worker's verification badge. Requires
+  `STRIPE_WEBHOOK_SECRET` (from the webhook endpoint you register in the
+  Stripe Dashboard, or `stripe listen` locally); every delivery's
+  `Stripe-Signature` header is verified before the payload is trusted.
 
 ## Tests
 

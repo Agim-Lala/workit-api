@@ -221,7 +221,7 @@ public sealed class AuthEndpointTests
                         .UseInMemoryDatabase(databaseName, databaseRoot)
                         .UseInternalServiceProvider(inMemoryProvider));
 
-                    // Never let tests reach the real Nominatim/Persona third parties.
+                    // Never let tests reach the real Nominatim/Stripe third parties.
                     services.RemoveAll<ICityLookupService>();
                     services.AddSingleton<ICityLookupService>(new FakeCityLookupService());
                     services.RemoveAll<IIdentityVerificationProvider>();

@@ -5,7 +5,7 @@ using Workit.Core.Shared.IdentityVerification;
 
 namespace Workit.Core.Tests.Shared.IdentityVerification;
 
-public sealed class PersonaWebhookSignatureShould
+public sealed class StripeWebhookSignatureShould
 {
     private const string Secret = "test-webhook-secret";
 
@@ -13,16 +13,16 @@ public sealed class PersonaWebhookSignatureShould
     public void AcceptAFreshlySignedPayload()
     {
         var now = DateTimeOffset.UtcNow;
-        var body = """{"data":{"attributes":{"name":"inquiry.approved"}}}""";
+        var body = """{"type":"identity.verification_session.verified"}""";
         var header = SignHeader(body, now.ToUnixTimeSeconds());
 
-        PersonaWebhookSignature.IsValid(header, body, Secret, now).ShouldBeTrue();
+        StripeWebhookSignature.IsValid(header, body, Secret, now).ShouldBeTrue();
     }
 
     [Fact]
     public void RejectAnUnsignedRequest()
     {
-        PersonaWebhookSignature.IsValid(null, "{}", Secret, DateTimeOffset.UtcNow).ShouldBeFalse();
+        StripeWebhookSignature.IsValid(null, "{}", Secret, DateTimeOffset.UtcNow).ShouldBeFalse();
     }
 
     [Fact]
@@ -31,7 +31,7 @@ public sealed class PersonaWebhookSignatureShould
         var now = DateTimeOffset.UtcNow;
         var header = SignHeader("""{"original":true}""", now.ToUnixTimeSeconds());
 
-        PersonaWebhookSignature.IsValid(header, """{"tampered":true}""", Secret, now).ShouldBeFalse();
+        StripeWebhookSignature.IsValid(header, """{"tampered":true}""", Secret, now).ShouldBeFalse();
     }
 
     [Fact]
@@ -41,7 +41,7 @@ public sealed class PersonaWebhookSignatureShould
         var body = "{}";
         var header = SignHeader(body, signedAt.ToUnixTimeSeconds());
 
-        PersonaWebhookSignature.IsValid(header, body, Secret, DateTimeOffset.UtcNow).ShouldBeFalse();
+        StripeWebhookSignature.IsValid(header, body, Secret, DateTimeOffset.UtcNow).ShouldBeFalse();
     }
 
     [Fact]
@@ -51,7 +51,7 @@ public sealed class PersonaWebhookSignatureShould
         var body = "{}";
         var header = SignHeader(body, now.ToUnixTimeSeconds());
 
-        PersonaWebhookSignature.IsValid(header, body, "a-different-secret", now).ShouldBeFalse();
+        StripeWebhookSignature.IsValid(header, body, "a-different-secret", now).ShouldBeFalse();
     }
 
     private static string SignHeader(string body, long timestamp)

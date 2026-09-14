@@ -9,7 +9,7 @@ public sealed record WorkitSettings(
     CorsSettings Cors,
     AuthSettings Auth,
     StorageSettings Storage,
-    PersonaSettings Persona)
+    StripeIdentitySettings StripeIdentity)
 {
     public static WorkitSettings FromEnvironment()
     {
@@ -31,11 +31,9 @@ public sealed record WorkitSettings(
                 .Split(',', StringSplitOptions.RemoveEmptyEntries | StringSplitOptions.TrimEntries)),
             new AuthSettings(GetBool("AUTH_ENABLE_WHITELIST", false)),
             new StorageSettings(Get("STORAGE_ROOT_PATH", "App_Data/uploads")),
-            new PersonaSettings(
-                GetOptional("PERSONA_API_KEY"),
-                GetOptional("PERSONA_WEBHOOK_SECRET"),
-                GetOptional("PERSONA_INQUIRY_TEMPLATE_ID"),
-                Get("PERSONA_API_BASE_URL", "https://withpersona.com/api/v1/")));
+            new StripeIdentitySettings(
+                GetOptional("STRIPE_SECRET_KEY"),
+                GetOptional("STRIPE_WEBHOOK_SECRET")));
     }
 
     private static string Get(string name, string fallback)
@@ -79,16 +77,12 @@ public sealed record AuthSettings(bool EnableWhitelist = false);
 public sealed record StorageSettings(string RootPath);
 
 /// <summary>
-/// Credentials for the Persona hosted identity-verification flow. <see cref="ApiKey"/>,
-/// <see cref="WebhookSecret"/> and <see cref="InquiryTemplateId"/> are null until a Persona
-/// sandbox/production account is configured; verification requests fail clearly until then.
+/// Credentials for the Stripe Identity hosted verification flow. Test-mode keys
+/// (<c>sk_test_...</c>) are free — create them at https://dashboard.stripe.com/test/apikeys
+/// after activating Identity at https://dashboard.stripe.com/identity/application. Null until
+/// configured; verification requests fail clearly rather than attempting the call.
 /// </summary>
-public sealed record PersonaSettings(
-    string? ApiKey,
-    string? WebhookSecret,
-    string? InquiryTemplateId,
-    string ApiBaseUrl = "https://withpersona.com/api/v1/")
+public sealed record StripeIdentitySettings(string? SecretKey, string? WebhookSecret)
 {
-    public bool IsConfigured =>
-        !string.IsNullOrWhiteSpace(ApiKey) && !string.IsNullOrWhiteSpace(InquiryTemplateId);
+    public bool IsConfigured => !string.IsNullOrWhiteSpace(SecretKey);
 }

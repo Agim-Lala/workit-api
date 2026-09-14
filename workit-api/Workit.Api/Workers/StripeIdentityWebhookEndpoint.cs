@@ -8,21 +8,21 @@ using Workit.Core.Workers;
 namespace Workit.Api.Workers;
 
 /// <summary>
-/// Receives Persona's inquiry-outcome webhook and applies it to the matching worker's
-/// verification badge. Anonymous at the ASP.NET Core auth layer (Persona cannot present a
-/// Workit JWT) but every request must carry a valid <c>Persona-Signature</c> header, checked
-/// against <c>PERSONA_WEBHOOK_SECRET</c> before anything in the body is trusted.
+/// Receives Stripe Identity's VerificationSession webhook and applies it to the matching
+/// worker's verification badge. Anonymous at the ASP.NET Core auth layer (Stripe cannot present
+/// a Workit JWT) but every request must carry a valid <c>Stripe-Signature</c> header, checked
+/// against <c>STRIPE_WEBHOOK_SECRET</c> before anything in the body is trusted.
 /// </summary>
-public sealed class PersonaWebhookEndpoint : IRouteMapper
+public sealed class StripeIdentityWebhookEndpoint : IRouteMapper
 {
     public void MapRoutes(IEndpointRouteBuilder app)
     {
-        app.MapPost("/webhooks/persona", HandleAsync)
+        app.MapPost("/webhooks/stripe-identity", HandleAsync)
             .AllowAnonymous()
             .Produces(StatusCodes.Status200OK)
             .Produces(StatusCodes.Status400BadRequest)
             .Produces(StatusCodes.Status401Unauthorized)
-            .WithName("PersonaWebhook")
+            .WithName("StripeIdentityWebhook")
             .WithTags("Webhooks");
     }
 
@@ -33,7 +33,7 @@ public sealed class PersonaWebhookEndpoint : IRouteMapper
         IMediator mediator,
         CancellationToken cancellationToken)
     {
-        var webhookSecret = settings.Persona.WebhookSecret;
+        var webhookSecret = settings.StripeIdentity.WebhookSecret;
         if (string.IsNullOrWhiteSpace(webhookSecret))
         {
             return Results.Unauthorized();
@@ -41,21 +41,21 @@ public sealed class PersonaWebhookEndpoint : IRouteMapper
 
         using var reader = new StreamReader(context.Request.Body);
         var rawBody = await reader.ReadToEndAsync(cancellationToken);
-        var signatureHeader = context.Request.Headers["Persona-Signature"].ToString();
+        var signatureHeader = context.Request.Headers["Stripe-Signature"].ToString();
 
-        if (!PersonaWebhookSignature.IsValid(signatureHeader, rawBody, webhookSecret, clock.UtcNow))
+        if (!StripeWebhookSignature.IsValid(signatureHeader, rawBody, webhookSecret, clock.UtcNow))
         {
             return Results.Unauthorized();
         }
 
-        var webhookEvent = PersonaWebhookPayloadParser.TryParse(rawBody);
+        var webhookEvent = StripeWebhookPayloadParser.TryParse(rawBody);
         if (webhookEvent is null)
         {
             return Results.BadRequest();
         }
 
         await mediator.Send(
-            new HandlePersonaWebhook.Request(webhookEvent.InquiryId, webhookEvent.Status),
+            new HandleStripeIdentityWebhook.Request(webhookEvent.EventType, webhookEvent.VerificationSessionId),
             cancellationToken);
 
         return Results.Ok();
