@@ -5,6 +5,7 @@ using Npgsql;
 using Workit.Core.Businesses.Domain;
 using Workit.Core.JobOpenings.Domain;
 using Workit.Core.Shared.Exceptions;
+using Workit.Core.Shared.Localization;
 using Workit.Core.Shared.Persistence;
 using Workit.Core.Shared.Persistence.DataWriters;
 using Workit.Core.Shared.Time;
@@ -27,7 +28,9 @@ public static class CreateJobOpening
         ShiftType ShiftType,
         TimeOnly? ShiftStartTime,
         TimeOnly? ShiftEndTime,
-        int RequiredWorkersCount) : IRequest<Response>;
+        int RequiredWorkersCount,
+        string? ContentLanguage = null,
+        IReadOnlyDictionary<string, JobOpeningTranslation>? Translations = null) : IRequest<Response>;
 
     public sealed record Response(
         Guid Id,
@@ -46,11 +49,16 @@ public static class CreateJobOpening
         TimeOnly? ShiftEndTime,
         int RequiredWorkersCount,
         JobOpeningStatus Status,
-        DateTimeOffset CreatedAt);
+        DateTimeOffset CreatedAt,
+        string ContentLanguage,
+        string PayTypeLabel,
+        string JobTypeLabel,
+        string ShiftTypeLabel,
+        string StatusLabel);
 
     public sealed class RequestValidator : AbstractValidator<Request>
     {
-        public RequestValidator()
+        public RequestValidator(ILocalizer localizer)
         {
             RuleFor(request => request.BusinessUserId)
                 .NotEmpty();
@@ -86,12 +94,12 @@ public static class CreateJobOpening
             RuleFor(request => request.EndDate)
                 .Null()
                 .When(request => request.JobType == JobType.Permanent)
-                .WithMessage("Permanent jobs cannot have an end date.");
+                .WithMessage(_ => localizer.Translate("validation.jobOpening.endDateNotAllowedForPermanent"));
 
             RuleFor(request => request.EndDate)
                 .NotNull()
                 .When(request => request.JobType is JobType.Project or JobType.ShortTerm)
-                .WithMessage("Project and short-term jobs require an end date.");
+                .WithMessage(_ => localizer.Translate("validation.jobOpening.endDateRequired"));
 
             RuleFor(request => request.EndDate)
                 .GreaterThanOrEqualTo(request => request.StartDate)
@@ -103,12 +111,12 @@ public static class CreateJobOpening
             RuleFor(request => request.ShiftStartTime)
                 .NotNull()
                 .When(request => request.ShiftType == ShiftType.CustomHours)
-                .WithMessage("Custom-hours shifts require a start time.");
+                .WithMessage(_ => localizer.Translate("validation.jobOpening.customHoursStartRequired"));
 
             RuleFor(request => request.ShiftEndTime)
                 .NotNull()
                 .When(request => request.ShiftType == ShiftType.CustomHours)
-                .WithMessage("Custom-hours shifts require an end time.");
+                .WithMessage(_ => localizer.Translate("validation.jobOpening.customHoursEndRequired"));
 
             RuleFor(request => request)
                 .Must(request => request.ShiftStartTime != request.ShiftEndTime)
@@ -116,28 +124,54 @@ public static class CreateJobOpening
                     && request.ShiftStartTime.HasValue
                     && request.ShiftEndTime.HasValue)
                 .WithName(nameof(Request.ShiftEndTime))
-                .WithMessage("Custom-hours shift start and end times must be different.");
+                .WithMessage(_ => localizer.Translate("validation.jobOpening.customHoursTimesDifferent"));
 
             RuleFor(request => request.ShiftStartTime)
                 .Null()
                 .When(request => request.ShiftType != ShiftType.CustomHours)
-                .WithMessage("Morning and evening shifts cannot include custom hours.");
+                .WithMessage(_ => localizer.Translate("validation.jobOpening.customHoursNotAllowed"));
 
             RuleFor(request => request.ShiftEndTime)
                 .Null()
                 .When(request => request.ShiftType != ShiftType.CustomHours)
-                .WithMessage("Morning and evening shifts cannot include custom hours.");
+                .WithMessage(_ => localizer.Translate("validation.jobOpening.customHoursNotAllowed"));
 
             RuleFor(request => request.RequiredWorkersCount)
                 .GreaterThan(0)
                 .LessThanOrEqualTo(1000);
+
+            RuleFor(request => request.ContentLanguage!)
+                .Must(Language.IsSupported)
+                .When(request => request.ContentLanguage is not null)
+                .WithMessage(request => localizer.Translate(
+                    "validation.jobOpening.contentLanguageUnsupported",
+                    request.ContentLanguage ?? string.Empty));
+
+            RuleFor(request => request.Translations!)
+                .Must(translations => translations.Keys.All(Language.IsSupported))
+                .When(request => request.Translations is { Count: > 0 })
+                .WithMessage(request => localizer.Translate(
+                    "validation.jobOpening.translationLanguageUnsupported",
+                    string.Join(", ", request.Translations!.Keys.Where(key => !Language.IsSupported(key)))));
+
+            RuleFor(request => request.Translations!)
+                .Must(WithinLengthLimits)
+                .When(request => request.Translations is { Count: > 0 })
+                .WithMessage(_ => localizer.Translate("validation.jobOpening.translationTooLong"));
         }
+
+        private static bool WithinLengthLimits(IReadOnlyDictionary<string, JobOpeningTranslation> translations) =>
+            translations.Values.All(translation =>
+                (translation.Title?.Length ?? 0) <= JobOpening.MaxTitleLength
+                && (translation.Description?.Length ?? 0) <= JobOpening.MaxDescriptionLength
+                && (translation.Role?.Length ?? 0) <= JobOpening.MaxRoleLength);
     }
 
     internal sealed class Handler(
         AppDbContext db,
         IDataWriter dataWriter,
-        IClock clock)
+        IClock clock,
+        ILocalizer localizer)
         : IRequestHandler<Request, Response>
     {
         public async Task<Response> Handle(Request request, CancellationToken cancellationToken)
@@ -149,7 +183,7 @@ public static class CreateJobOpening
 
             if (businessProfileId == Guid.Empty)
             {
-                throw new NotFoundException("Business profile not found.");
+                throw new NotFoundException("error.businessProfileNotFound");
             }
 
             var now = clock.UtcNow;
@@ -168,7 +202,9 @@ public static class CreateJobOpening
                 request.ShiftStartTime,
                 request.ShiftEndTime,
                 request.RequiredWorkersCount,
-                now);
+                now,
+                request.ContentLanguage,
+                request.Translations);
 
             try
             {
@@ -178,7 +214,7 @@ public static class CreateJobOpening
             }
             catch (DbUpdateException exception) when (IsForeignKeyViolation(exception))
             {
-                throw new NotFoundException("Business profile not found.");
+                throw new NotFoundException("error.businessProfileNotFound");
             }
 
             return new Response(
@@ -198,7 +234,12 @@ public static class CreateJobOpening
                 jobOpening.ShiftEndTime,
                 jobOpening.RequiredWorkersCount,
                 jobOpening.Status,
-                jobOpening.CreatedAt);
+                jobOpening.CreatedAt,
+                jobOpening.ContentLanguage,
+                localizer.Enum(jobOpening.PayType),
+                localizer.Enum(jobOpening.JobType),
+                localizer.Enum(jobOpening.ShiftType),
+                localizer.Enum(jobOpening.Status));
         }
 
         private static bool IsForeignKeyViolation(DbUpdateException exception)

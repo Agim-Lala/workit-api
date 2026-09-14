@@ -1,3 +1,5 @@
+using Workit.Core.Shared.Localization;
+
 namespace Workit.Core.JobOpenings.Domain;
 
 public sealed class JobOpening
@@ -6,6 +8,10 @@ public sealed class JobOpening
     public const int MaxDescriptionLength = 4000;
     public const int MaxRoleLength = 120;
     public const int MaxLocationLength = 500;
+    public const int MaxContentLanguageLength = 8;
+
+    private static readonly IReadOnlyDictionary<string, JobOpeningTranslation> NoTranslations =
+        new Dictionary<string, JobOpeningTranslation>();
 
     public Guid Id { get; private set; } = Guid.NewGuid();
     public Guid BusinessProfileId { get; private set; }
@@ -24,6 +30,12 @@ public sealed class JobOpening
     public int RequiredWorkersCount { get; private set; }
     public JobOpeningStatus Status { get; private set; } = JobOpeningStatus.Open;
     public DateTimeOffset CreatedAt { get; private set; } = DateTimeOffset.UtcNow;
+
+    /// <summary>Language the base <see cref="Title"/>, <see cref="Description"/> and <see cref="Role"/> are written in.</summary>
+    public string ContentLanguage { get; private set; } = Language.Default;
+
+    /// <summary>Optional per-language translations of the free-text fields, keyed by two-letter language code.</summary>
+    public IReadOnlyDictionary<string, JobOpeningTranslation> Translations { get; private set; } = NoTranslations;
 
     private JobOpening()
     {
@@ -44,7 +56,9 @@ public sealed class JobOpening
         TimeOnly? shiftStartTime,
         TimeOnly? shiftEndTime,
         int requiredWorkersCount,
-        DateTimeOffset createdAt)
+        DateTimeOffset createdAt,
+        string? contentLanguage = null,
+        IReadOnlyDictionary<string, JobOpeningTranslation>? translations = null)
     {
         ValidateSchedule(jobType, startDate, endDate, shiftType, shiftStartTime, shiftEndTime);
 
@@ -63,6 +77,60 @@ public sealed class JobOpening
         ShiftEndTime = shiftEndTime;
         RequiredWorkersCount = requiredWorkersCount;
         CreatedAt = createdAt;
+        ContentLanguage = Language.Resolve(contentLanguage);
+        Translations = NormalizeTranslations(translations);
+    }
+
+    /// <summary>
+    /// Returns the free-text content for <paramref name="language"/>, falling back field by field
+    /// to the base-language values when a translation is missing or blank.
+    /// </summary>
+    public JobOpeningContent ResolveContent(string language)
+    {
+        var resolvedLanguage = Language.Resolve(language);
+
+        if (resolvedLanguage == ContentLanguage
+            || !Translations.TryGetValue(resolvedLanguage, out var translation))
+        {
+            return new JobOpeningContent(Title, Description, Role);
+        }
+
+        return new JobOpeningContent(
+            Coalesce(translation.Title, Title),
+            Coalesce(translation.Description, Description),
+            Coalesce(translation.Role, Role));
+
+        static string Coalesce(string? value, string fallback) =>
+            string.IsNullOrWhiteSpace(value) ? fallback : value.Trim();
+    }
+
+    private IReadOnlyDictionary<string, JobOpeningTranslation> NormalizeTranslations(
+        IReadOnlyDictionary<string, JobOpeningTranslation>? source)
+    {
+        if (source is null || source.Count == 0)
+        {
+            return NoTranslations;
+        }
+
+        var normalized = new Dictionary<string, JobOpeningTranslation>();
+        foreach (var (language, translation) in source)
+        {
+            var resolvedLanguage = Language.Resolve(language);
+            if (resolvedLanguage == ContentLanguage || translation is null)
+            {
+                continue;
+            }
+
+            normalized[resolvedLanguage] = new JobOpeningTranslation(
+                Trim(translation.Title),
+                Trim(translation.Description),
+                Trim(translation.Role));
+        }
+
+        return normalized.Count == 0 ? NoTranslations : normalized;
+
+        static string? Trim(string? value) =>
+            string.IsNullOrWhiteSpace(value) ? null : value.Trim();
     }
 
     private static void ValidateSchedule(

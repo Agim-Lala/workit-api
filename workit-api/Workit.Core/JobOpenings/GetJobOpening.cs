@@ -2,6 +2,7 @@ using MediatR;
 using Microsoft.EntityFrameworkCore;
 using Workit.Core.JobOpenings.Domain;
 using Workit.Core.Shared.Exceptions;
+using Workit.Core.Shared.Localization;
 using Workit.Core.Shared.Persistence;
 
 namespace Workit.Core.JobOpenings;
@@ -27,35 +28,23 @@ public static class GetJobOpening
         TimeOnly? ShiftEndTime,
         int RequiredWorkersCount,
         JobOpeningStatus Status,
-        DateTimeOffset CreatedAt);
+        DateTimeOffset CreatedAt,
+        string Language,
+        string PayTypeLabel,
+        string JobTypeLabel,
+        string ShiftTypeLabel,
+        string StatusLabel);
 
-    internal sealed class Handler(ReadAppDbContext db) : IRequestHandler<Request, Response>
+    internal sealed class Handler(ReadAppDbContext db, ILocalizer localizer)
+        : IRequestHandler<Request, Response>
     {
         public async Task<Response> Handle(Request request, CancellationToken cancellationToken)
         {
-            var response = await db.Set<JobOpening>()
-                .Where(jobOpening => jobOpening.Id == request.Id)
-                .Select(jobOpening => new Response(
-                    jobOpening.Id,
-                    jobOpening.BusinessProfileId,
-                    jobOpening.Title,
-                    jobOpening.Description,
-                    jobOpening.Role,
-                    jobOpening.Location,
-                    jobOpening.PayAmount,
-                    jobOpening.PayType,
-                    jobOpening.JobType,
-                    jobOpening.StartDate,
-                    jobOpening.EndDate,
-                    jobOpening.ShiftType,
-                    jobOpening.ShiftStartTime,
-                    jobOpening.ShiftEndTime,
-                    jobOpening.RequiredWorkersCount,
-                    jobOpening.Status,
-                    jobOpening.CreatedAt))
-                .SingleOrDefaultAsync(cancellationToken);
+            var jobOpening = await db.Set<JobOpening>()
+                .SingleOrDefaultAsync(jobOpening => jobOpening.Id == request.Id, cancellationToken)
+                ?? throw new NotFoundException("error.jobOpeningNotFound");
 
-            return response ?? throw new NotFoundException("Job opening not found.");
+            return JobOpeningPresentation.ToResponse(jobOpening, localizer);
         }
     }
 }

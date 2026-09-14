@@ -2,6 +2,7 @@ using MediatR;
 using Microsoft.EntityFrameworkCore;
 using Workit.Core.JobOpenings.Domain;
 using Workit.Core.Shared.Exceptions;
+using Workit.Core.Shared.Localization;
 using Workit.Core.Shared.Persistence;
 using Workit.Core.Shared.Requests;
 using Workit.Core.Workers.Domain;
@@ -47,9 +48,14 @@ public static class GetJobOpenings
         TimeOnly? ShiftEndTime,
         int RequiredWorkersCount,
         JobOpeningStatus Status,
-        DateTimeOffset CreatedAt);
+        DateTimeOffset CreatedAt,
+        string PayTypeLabel,
+        string JobTypeLabel,
+        string ShiftTypeLabel,
+        string StatusLabel);
 
-    internal sealed class Handler(ReadAppDbContext db) : IRequestHandler<Request, Response>
+    internal sealed class Handler(ReadAppDbContext db, ILocalizer localizer)
+        : IRequestHandler<Request, Response>
     {
         public async Task<Response> Handle(Request request, CancellationToken cancellationToken)
         {
@@ -59,7 +65,7 @@ public static class GetJobOpenings
                 .Where(profile => profile.UserId == request.WorkerUserId)
                 .Select(profile => profile.Location)
                 .SingleOrDefaultAsync(cancellationToken)
-                ?? throw new NotFoundException("Worker profile not found.");
+                ?? throw new NotFoundException("error.workerProfileNotFound");
             var query = db.Set<JobOpening>().AsQueryable();
 
             if (!string.IsNullOrWhiteSpace(workerLocation))
@@ -103,28 +109,13 @@ public static class GetJobOpenings
                 .ThenBy(jobOpening => jobOpening.Id);
 
             var totalCount = await query.CountAsync(cancellationToken);
-            var items = await query
+            var jobOpenings = await query
                 .Skip((page - 1) * pageSize)
                 .Take(pageSize)
-                .Select(jobOpening => new Item(
-                    jobOpening.Id,
-                    jobOpening.BusinessProfileId,
-                    jobOpening.Title,
-                    jobOpening.Description,
-                    jobOpening.Role,
-                    jobOpening.Location,
-                    jobOpening.PayAmount,
-                    jobOpening.PayType,
-                    jobOpening.JobType,
-                    jobOpening.StartDate,
-                    jobOpening.EndDate,
-                    jobOpening.ShiftType,
-                    jobOpening.ShiftStartTime,
-                    jobOpening.ShiftEndTime,
-                    jobOpening.RequiredWorkersCount,
-                    jobOpening.Status,
-                    jobOpening.CreatedAt))
                 .ToListAsync(cancellationToken);
+            var items = jobOpenings
+                .Select(jobOpening => JobOpeningPresentation.ToListItem(jobOpening, localizer))
+                .ToList();
 
             var totalPages = totalCount == 0
                 ? 0

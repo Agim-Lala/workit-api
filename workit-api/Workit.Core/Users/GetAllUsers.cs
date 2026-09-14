@@ -1,5 +1,6 @@
 using MediatR;
 using Microsoft.EntityFrameworkCore;
+using Workit.Core.Shared.Localization;
 using Workit.Core.Shared.Persistence;
 using Workit.Core.Shared.Requests;
 using Workit.Core.Users.Domain;
@@ -20,7 +21,8 @@ public static class GetAllUsers
         bool HasPreviousPage,
         bool HasNextPage);
 
-    internal sealed class Handler(ReadAppDbContext db) : IRequestHandler<Request, Response>
+    internal sealed class Handler(ReadAppDbContext db, ILocalizer localizer)
+        : IRequestHandler<Request, Response>
     {
         public async Task<Response> Handle(Request request, CancellationToken cancellationToken)
         {
@@ -34,8 +36,11 @@ public static class GetAllUsers
             var users = await query
                 .Skip((page - 1) * pageSize)
                 .Take(pageSize)
-                .Select(user => new UserDto(user.Id, user.Email, user.Role))
+                .Select(user => new UserDto(user.Id, user.Email, user.Role, string.Empty))
                 .ToListAsync(cancellationToken);
+            users = users
+                .Select(user => user with { RoleLabel = localizer.Enum(user.Role) })
+                .ToList();
 
             var totalPages = totalCount == 0
                 ? 0

@@ -1,6 +1,7 @@
 using Microsoft.EntityFrameworkCore;
 using Workit.Core.Businesses.Domain;
 using Workit.Core.JobOpenings.Domain;
+using Workit.Core.Shared.Localization;
 using Workit.Core.Shared.PasswordHashers;
 using Workit.Core.Shared.Time;
 using Workit.Core.Users.Domain;
@@ -131,7 +132,9 @@ public sealed class WorkitDataSeeder(
                 seed.ShiftStartTime,
                 seed.ShiftEndTime,
                 seed.RequiredWorkersCount,
-                now.AddMinutes(-index)));
+                now.AddMinutes(-index),
+                Language.English,
+                seed.Translations));
         }
     }
 
@@ -152,7 +155,14 @@ public sealed class WorkitDataSeeder(
                 ShiftType.CustomHours,
                 new TimeOnly(16, 0),
                 new TimeOnly(22, 0),
-                3),
+                3,
+                new Dictionary<string, JobOpeningTranslation>
+                {
+                    [Language.Albanian] = new(
+                        "Kamarier për darkën e së premtes",
+                        "Shërbe klientët gjatë një darke të ngarkuar të së premtes dhe ndihmo në rregullimin e tavolinave mes rezervimeve.",
+                        "Kamarier"),
+                }),
             new JobOpeningSeed(
                 "Permanent Breakfast Waiter",
                 "Join the permanent breakfast team, prepare the dining room, and provide attentive morning service.",
@@ -166,7 +176,14 @@ public sealed class WorkitDataSeeder(
                 ShiftType.Morning,
                 null,
                 null,
-                2),
+                2,
+                new Dictionary<string, JobOpeningTranslation>
+                {
+                    [Language.Albanian] = new(
+                        "Kamarier i përhershëm për mëngjesin",
+                        "Bashkohu me ekipin e përhershëm të mëngjesit, përgatit sallën e ngrënies dhe ofro shërbim të kujdesshëm në mëngjes.",
+                        "Kamarier"),
+                }),
             new JobOpeningSeed(
                 "Restaurant Renovation Crew",
                 "Support a two-week restaurant renovation with furniture assembly, painting, and final site preparation.",
@@ -267,5 +284,6 @@ public sealed class WorkitDataSeeder(
         ShiftType ShiftType,
         TimeOnly? ShiftStartTime,
         TimeOnly? ShiftEndTime,
-        int RequiredWorkersCount);
+        int RequiredWorkersCount,
+        IReadOnlyDictionary<string, JobOpeningTranslation>? Translations = null);
 }

@@ -1,7 +1,10 @@
+using System.Linq.Expressions;
+using System.Reflection;
 using FluentValidation;
 using MediatR;
 using Microsoft.Extensions.DependencyInjection;
 using Workit.Core.Shared.Behaviours;
+using Workit.Core.Shared.Localization;
 using Workit.Core.Shared.PasswordHashers;
 using Workit.Core.Shared.Persistence.DataMigrators;
 using Workit.Core.Shared.Persistence.DataSeeders;
@@ -23,6 +26,10 @@ public static class DependencyInjection
         services.AddTransient(typeof(IPipelineBehavior<,>), typeof(ValidationBehaviour<,>));
         services.AddInternalServices();
 
+        var localizer = new JsonLocalizer();
+        services.AddSingleton<ILocalizer>(localizer);
+        ConfigureValidatorLocalization(localizer);
+
         services.AddScoped<IDataWriter, EfDataWriter>();
         services.AddScoped<IGenericQuery, EfGenericQuery>();
         services.AddScoped<IDataMigrator, EfDataMigrator>();
@@ -34,6 +41,24 @@ public static class DependencyInjection
         services.AddSingleton<IClock, SystemClock>();
 
         return services;
+    }
+
+    private static void ConfigureValidatorLocalization(ILocalizer localizer)
+    {
+        ValidatorOptions.Global.LanguageManager = new WorkitValidatorLanguageManager(localizer);
+        ValidatorOptions.Global.DisplayNameResolver = ResolveDisplayName;
+
+        string? ResolveDisplayName(Type type, MemberInfo? member, LambdaExpression? expression)
+        {
+            if (member is null)
+            {
+                return null;
+            }
+
+            var key = $"property.{member.Name}";
+            var translated = localizer.Translate(key);
+            return translated == key ? null : translated;
+        }
     }
 
     private static IServiceCollection AddInternalServices(this IServiceCollection services)

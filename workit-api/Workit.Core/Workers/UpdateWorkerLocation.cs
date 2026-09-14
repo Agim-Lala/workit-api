@@ -36,7 +36,7 @@ public static class UpdateWorkerLocation
                 .SingleOrDefaultAsync(
                     workerProfile => workerProfile.UserId == request.WorkerUserId,
                     cancellationToken)
-                ?? throw new NotFoundException("Worker profile not found.");
+                ?? throw new NotFoundException("error.workerProfileNotFound");
 
             profile.ChangeLocation(request.Location);
             await dataWriter.SaveAsync(cancellationToken);

@@ -3,6 +3,7 @@ using MediatR;
 using Microsoft.EntityFrameworkCore;
 using Workit.Core.Shared.EnvironmentUtils;
 using Workit.Core.Shared.Exceptions;
+using Workit.Core.Shared.Localization;
 using Workit.Core.Shared.PasswordHashers;
 using Workit.Core.Shared.Persistence;
 using Workit.Core.Shared.Time;
@@ -39,7 +40,8 @@ public static class LoginUser
         IPasswordHasher passwordHasher,
         IClock clock,
         IAccessTokenCreator accessTokenCreator,
-        WorkitSettings settings)
+        WorkitSettings settings,
+        ILocalizer localizer)
         : IRequestHandler<Request, Response>
     {
         public async Task<Response> Handle(Request request, CancellationToken cancellationToken)
@@ -50,12 +52,12 @@ public static class LoginUser
 
             if (user is null || !passwordHasher.Verify(request.Password, user.PasswordHash))
             {
-                throw new DomainException("Invalid email or password.");
+                throw new DomainException("error.invalidCredentials");
             }
 
             var expiresAt = clock.UtcNow.AddMinutes(settings.Token.ExpirationInMinutes);
             return new Response(
-                new UserDto(user.Id, user.Email, user.Role),
+                new UserDto(user.Id, user.Email, user.Role, localizer.Enum(user.Role)),
                 accessTokenCreator.Create(user, expiresAt),
                 expiresAt);
         }

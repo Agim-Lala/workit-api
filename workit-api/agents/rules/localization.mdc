@@ -1,0 +1,40 @@
+---
+description: How Workit localizes user-facing text (English and Albanian) across validation, errors, enums, and job-opening content.
+alwaysApply: false
+---
+
+# Localization
+
+Workit serves English (`en`, default) and Albanian (`sq`). The request language is
+resolved from the `Accept-Language` header by `UseRequestLocalization` in
+`Program.cs`, which sets `CultureInfo.CurrentUICulture`.
+
+## Translation catalog
+
+- Strings live in `Workit.Core/Shared/Localization/Resources/translations.{en,sq}.json`
+  as a flat `key: value` map, embedded in `Workit.Core` (`<WithCulture>false</WithCulture>`
+  so `.sq.` is not treated as a satellite culture).
+- `ILocalizer` (singleton `JsonLocalizer`) resolves keys against the current culture,
+  then English, then returns the key unchanged. Inject it where translation is needed.
+- `Language.Supported` / `Language.Resolve` are the single source of truth for
+  supported codes. Add a language by extending both and adding a resource file.
+
+## Rules
+
+- User-facing message text goes through `ILocalizer`, keyed, never hard-coded inline.
+- `DomainException` / `NotFoundException` take a **catalog key** as their message
+  (`throw new NotFoundException("error.jobOpeningNotFound")`). `ApiExceptionWriter`
+  translates it. A plain sentence still works (it is returned verbatim when absent
+  from the catalog) but new code uses keys under `error.*`.
+- FluentValidation: built-in messages resolve via `WorkitValidatorLanguageManager`
+  (keys `validation.<ValidatorName>`); property names via the global
+  `DisplayNameResolver` (keys `property.<PropertyName>`). Custom messages use
+  `.WithMessage(_ => localizer.Translate("validation.<feature>.<rule>"))`, not a
+  literal string.
+- Enums exposed in responses get a sibling localized label
+  (`localizer.Enum(value)`, keys `enum.<EnumType>.<Value>`); the raw enum value is
+  still returned. Shape job-opening responses through `JobOpeningPresentation`.
+- User-generated job-opening text is translated by the submitting business, stored
+  in the `job_openings.Translations` jsonb column keyed by language, with
+  `ContentLanguage` naming the base language. `JobOpening.ResolveContent(language)`
+  does field-by-field fallback to the base values. Do not machine-translate.
