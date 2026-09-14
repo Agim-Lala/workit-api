@@ -132,6 +132,35 @@ Translation strings live in `Workit.Core/Shared/Localization/Resources/translati
 (embedded resources). Add a language by extending `Language.Supported` and adding a
 matching resource file.
 
+## Worker Profile
+
+All routes below require a worker JWT (`RequireAuthorization(AuthorizationPolicies.WorkerOnly)`).
+
+- `GET /worker-profile` – the full profile: contact info, location (with
+  `isLocationVerified`/`country`), CV/photo presence, preferences, and the
+  ID-verification badge status.
+- `PUT /worker-profile/location` – `{ "location": "Durrës" }`. Looked up against
+  OpenStreetMap's free Nominatim API to normalize the city and country; a lookup
+  miss or third-party outage saves the text as typed, unverified, rather than
+  rejecting the request. No API key required.
+- `PUT /worker-profile/preferences` – `{ "interestedFields": ["Bartending"], "preferredShiftTypes": [0, 1] }`
+  (see `ShiftType`: `0` Morning, `1` Evening, `2` CustomHours).
+- `POST /worker-profile/cv` (multipart, field `file`, PDF, 5MB max) and
+  `GET /worker-profile/cv` – upload/download the worker's CV. Files are stored
+  on local disk under `IFileStorage`'s configured root (`STORAGE_ROOT_PATH`,
+  default `App_Data/uploads`); swap the implementation to move to cloud storage.
+- `POST /worker-profile/photo` (multipart, field `file`, JPEG/PNG/WebP, 5MB max)
+  and `GET /worker-profile/photo` – upload/download the profile photo.
+- `POST /worker-profile/verification/start` – starts a hosted
+  [Persona](https://withpersona.com) identity-verification inquiry and returns
+  `hostedUrl` to redirect the worker to. Requires `PERSONA_API_KEY` and
+  `PERSONA_INQUIRY_TEMPLATE_ID`; without them the endpoint returns a clear
+  domain error instead of attempting the call.
+- `POST /webhooks/persona` (anonymous, called by Persona) – applies the
+  inquiry's outcome to the worker's verification badge. Requires
+  `PERSONA_WEBHOOK_SECRET`; every delivery's `Persona-Signature` header is
+  verified before the payload is trusted.
+
 ## Tests
 
 ```bash

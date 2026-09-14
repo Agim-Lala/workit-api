@@ -34,6 +34,11 @@
   "error.unexpected": "An unexpected error occurred.",
   "error.businessProfileNotFound": "Business profile not found.",
   "error.workerProfileNotFound": "Worker profile not found.",
+  "error.workerCvNotFound": "No CV has been uploaded yet.",
+  "error.workerPhotoNotFound": "No profile photo has been uploaded yet.",
+  "error.workerAlreadyVerified": "This worker is already verified.",
+  "error.verificationNotConfigured": "Identity verification is not available yet.",
+  "error.verificationStartFailed": "Identity verification could not be started. Try again.",
   "error.jobOpeningNotFound": "Job opening not found.",
   "error.emailAlreadyRegistered": "Email already registered.",
   "error.invalidCredentials": "Invalid email or password.",
@@ -79,5 +84,9 @@
   "enum.JobOpeningStatus.Cancelled": "Cancelled",
   "enum.UserRole.Worker": "Worker",
   "enum.UserRole.Business": "Business",
-  "enum.UserRole.Admin": "Admin"
+  "enum.UserRole.Admin": "Admin",
+  "enum.WorkerVerificationStatus.NotStarted": "Not started",
+  "enum.WorkerVerificationStatus.Pending": "Pending review",
+  "enum.WorkerVerificationStatus.Verified": "Verified",
+  "enum.WorkerVerificationStatus.Rejected": "Not verified"
 }

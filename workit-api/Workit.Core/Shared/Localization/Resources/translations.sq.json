@@ -34,6 +34,11 @@
   "error.unexpected": "Ndodhi një gabim i papritur.",
   "error.businessProfileNotFound": "Profili i biznesit nuk u gjet.",
   "error.workerProfileNotFound": "Profili i punëtorit nuk u gjet.",
+  "error.workerCvNotFound": "Nuk është ngarkuar ende asnjë CV.",
+  "error.workerPhotoNotFound": "Nuk është ngarkuar ende asnjë foto profili.",
+  "error.workerAlreadyVerified": "Ky punëtor është tashmë i verifikuar.",
+  "error.verificationNotConfigured": "Verifikimi i identitetit nuk ofrohet ende.",
+  "error.verificationStartFailed": "Verifikimi i identitetit nuk u nis dot. Provo përsëri.",
   "error.jobOpeningNotFound": "Shpallja e punës nuk u gjet.",
   "error.emailAlreadyRegistered": "Ky email është regjistruar tashmë.",
   "error.invalidCredentials": "Email ose fjalëkalim i pasaktë.",
@@ -79,5 +84,9 @@
   "enum.JobOpeningStatus.Cancelled": "E anuluar",
   "enum.UserRole.Worker": "Punëtor",
   "enum.UserRole.Business": "Biznes",
-  "enum.UserRole.Admin": "Administrator"
+  "enum.UserRole.Admin": "Administrator",
+  "enum.WorkerVerificationStatus.NotStarted": "E panisur",
+  "enum.WorkerVerificationStatus.Pending": "Në shqyrtim",
+  "enum.WorkerVerificationStatus.Verified": "E verifikuar",
+  "enum.WorkerVerificationStatus.Rejected": "E paverifikuar"
 }

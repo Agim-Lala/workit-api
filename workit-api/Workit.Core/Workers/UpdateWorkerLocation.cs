@@ -2,6 +2,7 @@ using FluentValidation;
 using MediatR;
 using Microsoft.EntityFrameworkCore;
 using Workit.Core.Shared.Exceptions;
+using Workit.Core.Shared.Location;
 using Workit.Core.Shared.Persistence;
 using Workit.Core.Shared.Persistence.DataWriters;
 using Workit.Core.Workers.Domain;
@@ -12,7 +13,7 @@ public static class UpdateWorkerLocation
 {
     public sealed record Request(Guid WorkerUserId, string Location) : IRequest<Response>;
 
-    public sealed record Response(string Location);
+    public sealed record Response(string Location, bool IsLocationVerified, string? Country);
 
     public sealed class RequestValidator : AbstractValidator<Request>
     {
@@ -27,7 +28,7 @@ public static class UpdateWorkerLocation
         }
     }
 
-    internal sealed class Handler(AppDbContext db, IDataWriter dataWriter)
+    internal sealed class Handler(AppDbContext db, IDataWriter dataWriter, ICityLookupService cityLookupService)
         : IRequestHandler<Request, Response>
     {
         public async Task<Response> Handle(Request request, CancellationToken cancellationToken)
@@ -38,10 +39,21 @@ public static class UpdateWorkerLocation
                     cancellationToken)
                 ?? throw new NotFoundException("error.workerProfileNotFound");
 
-            profile.ChangeLocation(request.Location);
+            // A lookup miss or a third-party outage both fall back to the raw text, unverified —
+            // see ICityLookupService for why this stays a soft check rather than a hard reject.
+            var match = await cityLookupService.FindAsync(request.Location, cancellationToken);
+            if (match is not null)
+            {
+                profile.VerifyLocation(match.City, match.Country, match.Latitude, match.Longitude);
+            }
+            else
+            {
+                profile.ChangeLocation(request.Location);
+            }
+
             await dataWriter.SaveAsync(cancellationToken);
 
-            return new Response(profile.Location);
+            return new Response(profile.Location, profile.IsLocationVerified, profile.Country);
         }
     }
 }

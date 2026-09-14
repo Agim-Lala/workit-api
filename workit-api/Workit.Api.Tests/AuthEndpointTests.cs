@@ -11,8 +11,11 @@ using Microsoft.EntityFrameworkCore.Storage;
 using Microsoft.Extensions.DependencyInjection;
 using Microsoft.Extensions.DependencyInjection.Extensions;
 using Shouldly;
+using Workit.Api.Tests.TestDoubles;
 using Workit.Core.Businesses;
 using Workit.Core.Businesses.Domain;
+using Workit.Core.Shared.IdentityVerification;
+using Workit.Core.Shared.Location;
 using Workit.Core.Shared.Persistence;
 using Workit.Core.Shared.Tokens;
 using Workit.Core.Users;
@@ -217,6 +220,12 @@ public sealed class AuthEndpointTests
                     services.AddDbContext<ReadAppDbContext>(options => options
                         .UseInMemoryDatabase(databaseName, databaseRoot)
                         .UseInternalServiceProvider(inMemoryProvider));
+
+                    // Never let tests reach the real Nominatim/Persona third parties.
+                    services.RemoveAll<ICityLookupService>();
+                    services.AddSingleton<ICityLookupService>(new FakeCityLookupService());
+                    services.RemoveAll<IIdentityVerificationProvider>();
+                    services.AddSingleton<IIdentityVerificationProvider, FakeIdentityVerificationProvider>();
                 });
             });
     }

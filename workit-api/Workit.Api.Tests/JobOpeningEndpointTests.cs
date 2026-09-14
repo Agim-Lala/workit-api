@@ -8,11 +8,14 @@ using Microsoft.Extensions.DependencyInjection;
 using Microsoft.Extensions.DependencyInjection.Extensions;
 using Shouldly;
 using Workit.Api.JobOpenings;
+using Workit.Api.Tests.TestDoubles;
 using Workit.Api.Workers;
 using Workit.Core.Businesses;
 using Workit.Core.Businesses.Domain;
 using Workit.Core.JobOpenings;
 using Workit.Core.JobOpenings.Domain;
+using Workit.Core.Shared.IdentityVerification;
+using Workit.Core.Shared.Location;
 using Workit.Core.Shared.Persistence;
 using Workit.Core.Workers;
 
@@ -468,6 +471,12 @@ public sealed class JobOpeningEndpointTests
                     services.AddDbContext<ReadAppDbContext>(options => options
                         .UseInMemoryDatabase(databaseName, databaseRoot)
                         .UseInternalServiceProvider(inMemoryProvider));
+
+                    // Never let tests reach the real Nominatim/Persona third parties.
+                    services.RemoveAll<ICityLookupService>();
+                    services.AddSingleton<ICityLookupService>(new FakeCityLookupService());
+                    services.RemoveAll<IIdentityVerificationProvider>();
+                    services.AddSingleton<IIdentityVerificationProvider, FakeIdentityVerificationProvider>();
                 });
             });
     }
