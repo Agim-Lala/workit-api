@@ -32,7 +32,7 @@ public static class GetWorkerProfile
                     profile.Phone,
                     profile.Location))
                 .SingleOrDefaultAsync(cancellationToken)
-                ?? throw new NotFoundException("Worker profile not found.");
+                ?? throw new NotFoundException("error.workerProfileNotFound");
         }
     }
 }

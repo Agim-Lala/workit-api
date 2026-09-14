@@ -7,6 +7,18 @@
   </PropertyGroup>
 
   <ItemGroup>
+    <!-- WithCulture=false: keep the ".sq." infix from being treated as a satellite culture. -->
+    <EmbeddedResource Include="Shared/Localization/Resources/translations.en.json">
+      <LogicalName>Workit.Core.Shared.Localization.Resources.translations.en.json</LogicalName>
+      <WithCulture>false</WithCulture>
+    </EmbeddedResource>
+    <EmbeddedResource Include="Shared/Localization/Resources/translations.sq.json">
+      <LogicalName>Workit.Core.Shared.Localization.Resources.translations.sq.json</LogicalName>
+      <WithCulture>false</WithCulture>
+    </EmbeddedResource>
+  </ItemGroup>
+
+  <ItemGroup>
     <PackageReference Include="BCrypt.Net-Next" Version="4.0.3" />
     <PackageReference Include="FluentValidation" Version="12.1.0" />
     <PackageReference Include="FluentValidation.DependencyInjectionExtensions" Version="12.1.0" />

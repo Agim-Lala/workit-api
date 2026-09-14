@@ -22,7 +22,9 @@ public sealed class CreateJobOpeningEndpoint : IRouteMapper
         ShiftType ShiftType,
         TimeOnly? ShiftStartTime,
         TimeOnly? ShiftEndTime,
-        int RequiredWorkersCount);
+        int RequiredWorkersCount,
+        string? ContentLanguage = null,
+        IReadOnlyDictionary<string, JobOpeningTranslation>? Translations = null);
 
     public void MapRoutes(IEndpointRouteBuilder app)
     {
@@ -59,7 +61,9 @@ public sealed class CreateJobOpeningEndpoint : IRouteMapper
                 request.ShiftType,
                 request.ShiftStartTime,
                 request.ShiftEndTime,
-                request.RequiredWorkersCount),
+                request.RequiredWorkersCount,
+                request.ContentLanguage,
+                request.Translations),
             cancellationToken);
         return Results.Created($"/job-openings/{response.Id}", response);
     }

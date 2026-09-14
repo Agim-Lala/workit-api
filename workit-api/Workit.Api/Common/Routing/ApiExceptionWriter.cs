@@ -1,6 +1,7 @@
 using Microsoft.AspNetCore.Diagnostics;
 using Microsoft.Extensions.Hosting;
 using Workit.Core.Shared.Exceptions;
+using Workit.Core.Shared.Localization;
 
 namespace Workit.Api.Common.Routing;
 
@@ -10,30 +11,31 @@ public static class ApiExceptionWriter
     {
         var exception = context.Features.Get<IExceptionHandlerFeature>()?.Error;
         var environment = context.RequestServices.GetRequiredService<IHostEnvironment>();
+        var localizer = context.RequestServices.GetRequiredService<ILocalizer>();
 
         (int statusCode, object payload) = exception switch
         {
             RequestValidationException validationException => (StatusCodes.Status400BadRequest, (object)new
             {
-                title = "Validation failed",
+                title = localizer["error.title.validation"],
                 errors = validationException.Errors
             }),
             NotFoundException notFoundException => (StatusCodes.Status404NotFound, (object)new
             {
-                title = "Not found",
-                detail = notFoundException.Message
+                title = localizer["error.title.notFound"],
+                detail = Localize(localizer, notFoundException)
             }),
             DomainException domainException => (StatusCodes.Status400BadRequest, (object)new
             {
-                title = "Domain error",
-                detail = domainException.Message
+                title = localizer["error.title.domain"],
+                detail = Localize(localizer, domainException)
             }),
             _ => (StatusCodes.Status500InternalServerError, (object)new
             {
-                title = "Unexpected error",
+                title = localizer["error.title.unexpected"],
                 detail = environment.IsDevelopment() && exception is not null
                     ? exception.Message
-                    : "An unexpected error occurred."
+                    : localizer["error.unexpected"]
             })
         };
 
@@ -41,4 +43,7 @@ public static class ApiExceptionWriter
         context.Response.ContentType = "application/json";
         await context.Response.WriteAsJsonAsync(payload);
     }
+
+    private static string Localize(ILocalizer localizer, ILocalizableError error) =>
+        localizer.Translate(error.LocalizationKey, error.LocalizationArgs);
 }

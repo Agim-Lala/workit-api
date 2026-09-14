@@ -1,7 +1,9 @@
+using System.Globalization;
 using System.Text;
 using Hangfire;
 using Hangfire.MemoryStorage;
 using Microsoft.AspNetCore.Authentication.JwtBearer;
+using Microsoft.AspNetCore.Localization;
 using Microsoft.EntityFrameworkCore;
 using Microsoft.IdentityModel.Tokens;
 using Microsoft.OpenApi.Models;
@@ -12,6 +14,7 @@ using Workit.Api.Common.Routing;
 using Workit.Api.Common.Swagger;
 using Workit.Core;
 using Workit.Core.Shared.EnvironmentUtils;
+using Workit.Core.Shared.Localization;
 using Workit.Core.Shared.Persistence;
 
 var builder = WebApplication.CreateBuilder(args);
@@ -43,6 +46,16 @@ builder.Services.AddSwaggerGen(options =>
     options.SwaggerDoc("v1", new OpenApiInfo { Title = "Workit API", Version = "v1" });
     options.CustomSchemaIds(type => type.FullName?.Replace("+", "."));
     options.AddBearerSecurity();
+});
+
+builder.Services.Configure<RequestLocalizationOptions>(options =>
+{
+    var cultures = Language.Supported.Select(language => new CultureInfo(language)).ToArray();
+    options.DefaultRequestCulture = new RequestCulture(Language.Default);
+    options.SupportedCultures = cultures;
+    options.SupportedUICultures = cultures;
+    options.ApplyCurrentCultureToResponseHeaders = true;
+    options.RequestCultureProviders = [new AcceptLanguageHeaderRequestCultureProvider()];
 });
 
 builder.Services.AddCors(options =>
@@ -96,6 +109,7 @@ var app = builder.Build();
 
 await app.ApplyMigrationsAndSeedDataAsync();
 
+app.UseRequestLocalization();
 app.UseSerilogRequestLogging();
 app.UseExceptionHandler(exceptionApp => exceptionApp.Run(ApiExceptionWriter.WriteAsync));
 

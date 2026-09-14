@@ -5,6 +5,7 @@ using Npgsql;
 using Workit.Core.Businesses.Domain;
 using Workit.Core.Shared.EnvironmentUtils;
 using Workit.Core.Shared.Exceptions;
+using Workit.Core.Shared.Localization;
 using Workit.Core.Shared.PasswordHashers;
 using Workit.Core.Shared.Persistence;
 using Workit.Core.Shared.Persistence.DataWriters;
@@ -32,7 +33,7 @@ public static class RegisterBusiness
     {
         private readonly ReadAppDbContext db;
 
-        public RequestValidator(ReadAppDbContext db)
+        public RequestValidator(ReadAppDbContext db, ILocalizer localizer)
         {
             this.db = db;
 
@@ -42,7 +43,7 @@ public static class RegisterBusiness
                 .EmailAddress()
                 .MaximumLength(User.MaxEmailLength)
                 .MustAsync(BeAvailableEmail)
-                .WithMessage("Email already registered.");
+                .WithMessage(_ => localizer.Translate("validation.user.emailAlreadyRegistered"));
 
             RuleFor(request => request.Password)
                 .NotEmpty()
@@ -81,7 +82,8 @@ public static class RegisterBusiness
         IPasswordHasher passwordHasher,
         IClock clock,
         IAccessTokenCreator accessTokenCreator,
-        WorkitSettings settings)
+        WorkitSettings settings,
+        ILocalizer localizer)
         : IRequestHandler<Request, Response>
     {
         public async Task<Response> Handle(Request request, CancellationToken cancellationToken)
@@ -110,21 +112,22 @@ public static class RegisterBusiness
             }
             catch (DbUpdateException exception) when (IsUniqueViolation(exception))
             {
-                throw new DomainException("Email already registered.");
+                throw new DomainException("error.emailAlreadyRegistered");
             }
 
-            return CreateResponse(user, now, accessTokenCreator, settings);
+            return CreateResponse(user, now, accessTokenCreator, settings, localizer);
         }
 
         private static Response CreateResponse(
             User user,
             DateTimeOffset now,
             IAccessTokenCreator accessTokenCreator,
-            WorkitSettings settings)
+            WorkitSettings settings,
+            ILocalizer localizer)
         {
             var expiresAt = now.AddMinutes(settings.Token.ExpirationInMinutes);
             return new Response(
-                new UserDto(user.Id, user.Email, user.Role),
+                new UserDto(user.Id, user.Email, user.Role, localizer.Enum(user.Role)),
                 accessTokenCreator.Create(user, expiresAt),
                 expiresAt);
         }

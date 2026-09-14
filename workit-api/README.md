@@ -92,6 +92,46 @@ Content-Type: application/json
 
 Both endpoints return the user, JWT access token, and expiration timestamp.
 
+## Localization
+
+The API answers in English (`en`, default) or Albanian (`sq`). Callers select the
+language with the standard `Accept-Language` header; unsupported or missing values
+fall back to English.
+
+```http
+GET /job-openings
+Accept-Language: sq
+```
+
+What is localized:
+
+- **Validation errors** – FluentValidation messages and property names.
+- **Domain and not-found errors** – the `detail` and `title` of error responses.
+- **Enum labels** – responses carry a localized `*Label` next to each enum
+  (`jobTypeLabel`, `shiftTypeLabel`, `payTypeLabel`, `statusLabel`, `roleLabel`);
+  the raw enum value is unchanged.
+- **Job opening free text** – a business may submit per-language `translations`
+  when creating a job opening. Reads return the caller's language with field-level
+  fallback to the base language (`contentLanguage`, default `en`).
+
+```jsonc
+POST /job-openings
+{
+  "title": "Weekend waiter",
+  "description": "Evening dinner service.",
+  "role": "Waiter",
+  "contentLanguage": "en",
+  "translations": {
+    "sq": { "title": "Kamarier fundjave", "description": "Shërbim darke.", "role": "Kamarier" }
+  }
+  // ... remaining job-opening fields
+}
+```
+
+Translation strings live in `Workit.Core/Shared/Localization/Resources/translations.{en,sq}.json`
+(embedded resources). Add a language by extending `Language.Supported` and adding a
+matching resource file.
+
 ## Tests
 
 ```bash
