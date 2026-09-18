@@ -17,6 +17,8 @@
   "validation.AsyncPredicateValidator": "Kushti i kërkuar për '{PropertyName}' nuk u plotësua.",
 
   "validation.user.emailAlreadyRegistered": "Ky email është regjistruar tashmë.",
+  "validation.business.niptInvalidFormat": "'{PropertyName}' nuk është një NIPT i vlefshëm (p.sh. L12345678A).",
+  "validation.business.niptAlreadyRegistered": "Ky NIPT është regjistruar tashmë.",
   "validation.jobOpening.endDateNotAllowedForPermanent": "Punët e përhershme nuk mund të kenë datë përfundimi.",
   "validation.jobOpening.endDateRequired": "Punët me projekt dhe afatshkurtra kërkojnë një datë përfundimi.",
   "validation.jobOpening.customHoursStartRequired": "Turnet me orar të personalizuar kërkojnë një orë fillimi.",
@@ -42,6 +44,9 @@
   "error.jobOpeningNotFound": "Shpallja e punës nuk u gjet.",
   "error.emailAlreadyRegistered": "Ky email është regjistruar tashmë.",
   "error.invalidCredentials": "Email ose fjalëkalim i pasaktë.",
+  "error.niptAlreadyRegistered": "Ky NIPT është regjistruar tashmë.",
+  "error.confirmationTokenInvalid": "Ky lidhje konfirmimi është i pavlefshëm.",
+  "error.confirmationTokenExpired": "Ky lidhje konfirmimi ka skaduar. Kërko një të re.",
 
   "property.Email": "Email-i",
   "property.Password": "Fjalëkalimi",
@@ -53,6 +58,8 @@
   "property.FullAddress": "Adresa e plotë",
   "property.Latitude": "Gjerësia gjeografike",
   "property.Longitude": "Gjatësia gjeografike",
+  "property.Nipt": "NIPT-i",
+  "property.Token": "Kodi",
   "property.Title": "Titulli",
   "property.Description": "Përshkrimi",
   "property.Role": "Roli",

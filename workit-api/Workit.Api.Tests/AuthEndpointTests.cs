@@ -4,6 +4,7 @@ using System.Net.Http.Json;
 using System.Security.Claims;
 using System.Text;
 using System.Text.Json;
+using System.Text.RegularExpressions;
 using Microsoft.AspNetCore.Hosting;
 using Microsoft.AspNetCore.Mvc.Testing;
 using Microsoft.EntityFrameworkCore;
@@ -14,6 +15,7 @@ using Shouldly;
 using Workit.Api.Tests.TestDoubles;
 using Workit.Core.Businesses;
 using Workit.Core.Businesses.Domain;
+using Workit.Core.Shared.Email;
 using Workit.Core.Shared.IdentityVerification;
 using Workit.Core.Shared.Location;
 using Workit.Core.Shared.Persistence;
@@ -77,7 +79,8 @@ public sealed class AuthEndpointTests
             "Test Business",
             "Rruga Test, Tirane",
             41.3275m,
-            19.8189m);
+            19.8189m,
+            "K12345678A");
 
         var response = await client.PostAsJsonAsync("/auth/register/business", request);
 
@@ -94,6 +97,113 @@ public sealed class AuthEndpointTests
         businessProfile.UserId.ShouldBe(payload.User.Id);
         businessProfile.BusinessName.ShouldBe("Test Business");
         businessProfile.FullAddress.ShouldBe("Rruga Test, Tirane");
+        businessProfile.Nipt.ShouldBe("K12345678A");
+        payload.User.EmailConfirmed.ShouldBeFalse();
+    }
+
+    [Theory]
+    [InlineData("")]
+    [InlineData("not-a-nipt")]
+    [InlineData("K1234567")]
+    [InlineData("123456789A")]
+    public async Task Register_business_requires_a_valid_nipt(string nipt)
+    {
+        await using var factory = CreateFactory();
+        using var client = factory.CreateClient();
+
+        var response = await client.PostAsJsonAsync(
+            "/auth/register/business",
+            new RegisterBusiness.Request(
+                "business@example.com",
+                "password123",
+                "Test Business",
+                "Rruga Test, Tirane",
+                41.3275m,
+                19.8189m,
+                nipt));
+
+        response.StatusCode.ShouldBe(HttpStatusCode.BadRequest);
+    }
+
+    [Fact]
+    public async Task Register_business_returns_bad_request_when_nipt_already_registered()
+    {
+        await using var factory = CreateFactory();
+        using var client = factory.CreateClient();
+
+        var firstResponse = await client.PostAsJsonAsync(
+            "/auth/register/business",
+            new RegisterBusiness.Request(
+                "first-business@example.com",
+                "password123",
+                "First Business",
+                "Rruga Test, Tirane",
+                41.3275m,
+                19.8189m,
+                "K12345678A"));
+        var secondResponse = await client.PostAsJsonAsync(
+            "/auth/register/business",
+            new RegisterBusiness.Request(
+                "second-business@example.com",
+                "password123",
+                "Second Business",
+                "Rruga Test, Tirane",
+                41.3275m,
+                19.8189m,
+                "k12345678a"));
+
+        firstResponse.StatusCode.ShouldBe(HttpStatusCode.Created, await firstResponse.Content.ReadAsStringAsync());
+        secondResponse.StatusCode.ShouldBe(HttpStatusCode.BadRequest);
+    }
+
+    [Fact]
+    public async Task Register_sends_a_confirmation_email_that_confirms_the_account()
+    {
+        await using var factory = CreateFactory();
+        using var client = factory.CreateClient();
+
+        var registerResponse = await client.PostAsJsonAsync(
+            "/auth/register/worker",
+            new RegisterWorker.Request("worker@example.com", "password123", "Test", "Worker", "Tirana"));
+        registerResponse.StatusCode.ShouldBe(HttpStatusCode.Created, await registerResponse.Content.ReadAsStringAsync());
+
+        var emailSender = (FakeEmailSender)factory.Services.GetRequiredService<IEmailSender>();
+        var sentEmail = emailSender.SentEmails.ShouldHaveSingleItem();
+        sentEmail.ToAddress.ShouldBe("worker@example.com");
+        var token = ExtractConfirmationToken(sentEmail.HtmlBody);
+
+        var confirmResponse = await client.PostAsJsonAsync("/auth/confirm-email", new ConfirmEmail.Request(token));
+
+        confirmResponse.StatusCode.ShouldBe(HttpStatusCode.OK, await confirmResponse.Content.ReadAsStringAsync());
+
+        await using var scope = factory.Services.CreateAsyncScope();
+        var db = scope.ServiceProvider.GetRequiredService<AppDbContext>();
+        var user = await db.Set<User>().SingleAsync();
+        user.EmailConfirmed.ShouldBeTrue();
+    }
+
+    [Fact]
+    public async Task Confirm_email_returns_bad_request_for_an_invalid_token()
+    {
+        await using var factory = CreateFactory();
+        using var client = factory.CreateClient();
+
+        var response = await client.PostAsJsonAsync("/auth/confirm-email", new ConfirmEmail.Request("not-a-real-token"));
+
+        response.StatusCode.ShouldBe(HttpStatusCode.BadRequest);
+    }
+
+    [Fact]
+    public async Task Resend_confirmation_returns_ok_regardless_of_whether_the_email_is_registered()
+    {
+        await using var factory = CreateFactory();
+        using var client = factory.CreateClient();
+
+        var response = await client.PostAsJsonAsync(
+            "/auth/resend-confirmation",
+            new ResendEmailConfirmation.Request("unknown@example.com"));
+
+        response.StatusCode.ShouldBe(HttpStatusCode.OK);
     }
 
     [Fact]
@@ -131,7 +241,8 @@ public sealed class AuthEndpointTests
                 "Test Business",
                 "Rruga Test, Tirane",
                 41.3275m,
-                19.8189m));
+                19.8189m,
+                "K12345678A"));
 
         firstResponse.StatusCode.ShouldBe(HttpStatusCode.Created, await firstResponse.Content.ReadAsStringAsync());
         secondResponse.StatusCode.ShouldBe(HttpStatusCode.BadRequest);
@@ -221,11 +332,13 @@ public sealed class AuthEndpointTests
                         .UseInMemoryDatabase(databaseName, databaseRoot)
                         .UseInternalServiceProvider(inMemoryProvider));
 
-                    // Never let tests reach the real Nominatim/Stripe third parties.
+                    // Never let tests reach the real Nominatim/Stripe/SMTP third parties.
                     services.RemoveAll<ICityLookupService>();
                     services.AddSingleton<ICityLookupService>(new FakeCityLookupService());
                     services.RemoveAll<IIdentityVerificationProvider>();
                     services.AddSingleton<IIdentityVerificationProvider, FakeIdentityVerificationProvider>();
+                    services.RemoveAll<IEmailSender>();
+                    services.AddSingleton<IEmailSender, FakeEmailSender>();
                 });
             });
     }
@@ -241,6 +354,13 @@ public sealed class AuthEndpointTests
             role);
 
         return accessTokenCreator.Create(user, DateTimeOffset.UtcNow.AddMinutes(30));
+    }
+
+    private static string ExtractConfirmationToken(string htmlBody)
+    {
+        var match = Regex.Match(htmlBody, "token=([^\"&]+)");
+        match.Success.ShouldBeTrue();
+        return Uri.UnescapeDataString(match.Groups[1].Value);
     }
 
     private static string? GetRoleFromToken(string accessToken)

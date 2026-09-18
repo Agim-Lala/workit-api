@@ -9,7 +9,9 @@ public sealed record WorkitSettings(
     CorsSettings Cors,
     AuthSettings Auth,
     StorageSettings Storage,
-    StripeIdentitySettings StripeIdentity)
+    StripeIdentitySettings StripeIdentity,
+    EmailSettings Email,
+    RateLimitSettings RateLimit)
 {
     public static WorkitSettings FromEnvironment()
     {
@@ -33,7 +35,20 @@ public sealed record WorkitSettings(
             new StorageSettings(Get("STORAGE_ROOT_PATH", "App_Data/uploads")),
             new StripeIdentitySettings(
                 GetOptional("STRIPE_SECRET_KEY"),
-                GetOptional("STRIPE_WEBHOOK_SECRET")));
+                GetOptional("STRIPE_WEBHOOK_SECRET")),
+            new EmailSettings(
+                GetOptional("SMTP_HOST"),
+                GetInt("SMTP_PORT", 587),
+                GetOptional("SMTP_USERNAME"),
+                GetOptional("SMTP_PASSWORD"),
+                GetBool("SMTP_ENABLE_SSL", true),
+                Get("EMAIL_FROM_ADDRESS", "no-reply@workit.al"),
+                Get("EMAIL_FROM_NAME", "Workit"),
+                Get("EMAIL_CONFIRMATION_BASE_URL", "http://localhost:5173/confirm-email"),
+                GetInt("EMAIL_CONFIRMATION_TOKEN_EXPIRATION_IN_HOURS", 24)),
+            new RateLimitSettings(
+                GetInt("AUTH_RATE_LIMIT_PERMIT_LIMIT", 10),
+                GetInt("AUTH_RATE_LIMIT_WINDOW_IN_SECONDS", 60)));
     }
 
     private static string Get(string name, string fallback)
@@ -86,3 +101,25 @@ public sealed record StripeIdentitySettings(string? SecretKey, string? WebhookSe
 {
     public bool IsConfigured => !string.IsNullOrWhiteSpace(SecretKey);
 }
+
+/// <summary>
+/// SMTP credentials for transactional email (registration confirmation links). Null until
+/// <c>SMTP_HOST</c> is configured; sends are skipped with a logged warning rather than attempting
+/// the connection.
+/// </summary>
+public sealed record EmailSettings(
+    string? SmtpHost,
+    int SmtpPort,
+    string? SmtpUsername,
+    string? SmtpPassword,
+    bool EnableSsl,
+    string FromAddress,
+    string FromName,
+    string ConfirmationLinkBaseUrl,
+    int ConfirmationTokenExpirationInHours)
+{
+    public bool IsConfigured => !string.IsNullOrWhiteSpace(SmtpHost);
+}
+
+/// <summary>Fixed-window rate limit applied to the anonymous auth endpoints (register/login).</summary>
+public sealed record RateLimitSettings(int PermitLimit, int WindowInSeconds);

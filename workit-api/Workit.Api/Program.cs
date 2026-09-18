@@ -1,9 +1,11 @@
 using System.Globalization;
 using System.Text;
+using System.Threading.RateLimiting;
 using Hangfire;
 using Hangfire.MemoryStorage;
 using Microsoft.AspNetCore.Authentication.JwtBearer;
 using Microsoft.AspNetCore.Localization;
+using Microsoft.AspNetCore.RateLimiting;
 using Microsoft.EntityFrameworkCore;
 using Microsoft.IdentityModel.Tokens;
 using Microsoft.OpenApi.Models;
@@ -85,6 +87,24 @@ builder.Services
 
 builder.Services.AddAuthorization(AuthorizationPolicies.AddWorkitPolicies);
 
+builder.Services.AddRateLimiter(options =>
+{
+    options.OnRejected = (context, cancellationToken) =>
+    {
+        context.HttpContext.Response.StatusCode = StatusCodes.Status429TooManyRequests;
+        return new ValueTask();
+    };
+
+    options.AddPolicy(RateLimitPolicies.Auth, httpContext => RateLimitPartition.GetFixedWindowLimiter(
+        httpContext.Connection.RemoteIpAddress?.ToString() ?? "unknown",
+        _ => new FixedWindowRateLimiterOptions
+        {
+            PermitLimit = settings.RateLimit.PermitLimit,
+            Window = TimeSpan.FromSeconds(settings.RateLimit.WindowInSeconds),
+            QueueLimit = 0
+        }));
+});
+
 builder.Services.AddDbContext<AppDbContext>(options =>
 {
     options.UseNpgsql(settings.Database.MainConnectionString);
@@ -120,6 +140,7 @@ if (app.Environment.IsDevelopment())
 }
 
 app.UseCors();
+app.UseRateLimiter();
 app.UseAuthentication();
 app.UseAuthorization();
 

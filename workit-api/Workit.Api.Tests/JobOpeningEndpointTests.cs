@@ -254,6 +254,90 @@ public sealed class JobOpeningEndpointTests
     }
 
     [Fact]
+    public async Task Browse_ranks_jobs_matching_worker_preferences_first()
+    {
+        await using var factory = CreateFactory();
+        using var client = factory.CreateClient();
+        var business = await RegisterBusinessAsync(client);
+        client.DefaultRequestHeaders.Authorization = new AuthenticationHeaderValue(
+            "Bearer",
+            business.AccessToken);
+
+        var earlyDate = DateOnly.FromDateTime(DateTime.UtcNow.AddDays(2));
+        var lateDate = DateOnly.FromDateTime(DateTime.UtcNow.AddDays(10));
+
+        var genericResponse = await client.PostAsJsonAsync(
+            "/job-openings",
+            new CreateJobOpeningEndpoint.Body(
+                "General cleaner",
+                "Clean the venue before opening.",
+                "Cleaner",
+                "Tirana",
+                6m,
+                PayType.Hourly,
+                JobType.ShortTerm,
+                earlyDate,
+                earlyDate,
+                ShiftType.Morning,
+                null,
+                null,
+                1));
+        genericResponse.StatusCode.ShouldBe(
+            HttpStatusCode.Created,
+            await genericResponse.Content.ReadAsStringAsync());
+
+        var matchResponse = await client.PostAsJsonAsync(
+            "/job-openings",
+            new CreateJobOpeningEndpoint.Body(
+                "Evening bartender",
+                "Serve drinks during the evening event.",
+                "Bartender",
+                "Tirana",
+                9m,
+                PayType.Hourly,
+                JobType.ShortTerm,
+                lateDate,
+                lateDate,
+                ShiftType.Evening,
+                null,
+                null,
+                1));
+        matchResponse.StatusCode.ShouldBe(
+            HttpStatusCode.Created,
+            await matchResponse.Content.ReadAsStringAsync());
+
+        var worker = await RegisterWorkerAsync(client);
+        client.DefaultRequestHeaders.Authorization = new AuthenticationHeaderValue(
+            "Bearer",
+            worker.AccessToken);
+
+        var beforeResponse = await client.GetAsync("/job-openings");
+        var before = await beforeResponse.Content.ReadFromJsonAsync<GetJobOpenings.Response>();
+
+        beforeResponse.StatusCode.ShouldBe(HttpStatusCode.OK, await beforeResponse.Content.ReadAsStringAsync());
+        before.ShouldNotBeNull();
+        before.Items.Select(item => item.Title).ShouldBe(["General cleaner", "Evening bartender"]);
+        before.Items.ShouldAllBe(item => !item.MatchesInterestedFields && !item.MatchesPreferredShiftType);
+
+        var preferencesResponse = await client.PutAsJsonAsync(
+            "/worker-profile/preferences",
+            new UpdateWorkerPreferencesEndpoint.Body(["bartender"], [ShiftType.Evening]));
+        preferencesResponse.StatusCode.ShouldBe(
+            HttpStatusCode.OK,
+            await preferencesResponse.Content.ReadAsStringAsync());
+
+        var afterResponse = await client.GetAsync("/job-openings");
+        var after = await afterResponse.Content.ReadFromJsonAsync<GetJobOpenings.Response>();
+
+        afterResponse.StatusCode.ShouldBe(HttpStatusCode.OK, await afterResponse.Content.ReadAsStringAsync());
+        after.ShouldNotBeNull();
+        after.Items.Select(item => item.Title).ShouldBe(["Evening bartender", "General cleaner"]);
+        after.Items[0].MatchesInterestedFields.ShouldBeTrue();
+        after.Items[0].MatchesPreferredShiftType.ShouldBeTrue();
+        after.Items[0].DistanceKm.ShouldBeNull();
+    }
+
+    [Fact]
     public async Task Business_browses_only_its_own_job_openings()
     {
         await using var factory = CreateFactory();
@@ -261,7 +345,8 @@ public sealed class JobOpeningEndpointTests
         var firstBusiness = await RegisterBusinessAsync(
             client,
             "first-business@example.com",
-            "First Business");
+            "First Business",
+            "K11111111A");
         client.DefaultRequestHeaders.Authorization = new AuthenticationHeaderValue(
             "Bearer",
             firstBusiness.AccessToken);
@@ -277,7 +362,8 @@ public sealed class JobOpeningEndpointTests
         var secondBusiness = await RegisterBusinessAsync(
             client,
             "second-business@example.com",
-            "Second Business");
+            "Second Business",
+            "K22222222A");
         client.DefaultRequestHeaders.Authorization = new AuthenticationHeaderValue(
             "Bearer",
             secondBusiness.AccessToken);
@@ -391,7 +477,8 @@ public sealed class JobOpeningEndpointTests
     private static async Task<RegisterBusiness.Response> RegisterBusinessAsync(
         HttpClient client,
         string email = "business@example.com",
-        string businessName = "Test Business")
+        string businessName = "Test Business",
+        string nipt = "K12345678A")
     {
         var response = await client.PostAsJsonAsync(
             "/auth/register/business",
@@ -401,7 +488,8 @@ public sealed class JobOpeningEndpointTests
                 businessName,
                 "Rruga Test, Tirane",
                 41.3275m,
-                19.8189m));
+                19.8189m,
+                nipt));
 
         response.StatusCode.ShouldBe(HttpStatusCode.Created, await response.Content.ReadAsStringAsync());
         var payload = await response.Content.ReadFromJsonAsync<RegisterBusiness.Response>();

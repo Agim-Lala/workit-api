@@ -4,6 +4,7 @@ using FluentValidation;
 using MediatR;
 using Microsoft.Extensions.DependencyInjection;
 using Workit.Core.Shared.Behaviours;
+using Workit.Core.Shared.Email;
 using Workit.Core.Shared.EnvironmentUtils;
 using Workit.Core.Shared.IdentityVerification;
 using Workit.Core.Shared.Localization;
@@ -44,6 +45,7 @@ public static class DependencyInjection
         services.AddTransient<ITokenService, TokenService>();
         services.AddSingleton<IClock, SystemClock>();
         services.AddScoped<IFileStorage, LocalDiskFileStorage>();
+        services.AddTransient<IEmailSender, SmtpEmailSender>();
 
         services.AddHttpClient<ICityLookupService, NominatimCityLookupService>(client =>
         {

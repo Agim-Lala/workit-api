@@ -37,7 +37,12 @@ internal static class JobOpeningPresentation
             localizer.Enum(jobOpening.Status));
     }
 
-    public static GetJobOpenings.Item ToListItem(JobOpening jobOpening, ILocalizer localizer)
+    public static GetJobOpenings.Item ToListItem(
+        JobOpening jobOpening,
+        ILocalizer localizer,
+        double? distanceKm,
+        bool matchesInterestedFields,
+        bool matchesPreferredShiftType)
     {
         var content = jobOpening.ResolveContent(localizer.CurrentLanguage);
         return new GetJobOpenings.Item(
@@ -61,7 +66,10 @@ internal static class JobOpeningPresentation
             localizer.Enum(jobOpening.PayType),
             localizer.Enum(jobOpening.JobType),
             localizer.Enum(jobOpening.ShiftType),
-            localizer.Enum(jobOpening.Status));
+            localizer.Enum(jobOpening.Status),
+            distanceKm,
+            matchesInterestedFields,
+            matchesPreferredShiftType);
     }
 
     public static GetBusinessJobOpenings.Item ToBusinessListItem(JobOpening jobOpening, ILocalizer localizer)

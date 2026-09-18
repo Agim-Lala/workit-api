@@ -154,7 +154,8 @@ public sealed class LocalizationEndpointTests
                 "Test Business",
                 "Rruga Test, Tirane",
                 41.3275m,
-                19.8189m));
+                19.8189m,
+                "K12345678A"));
         response.StatusCode.ShouldBe(HttpStatusCode.Created, await response.Content.ReadAsStringAsync());
         var payload = await response.Content.ReadFromJsonAsync<RegisterBusiness.Response>();
         payload.ShouldNotBeNull();

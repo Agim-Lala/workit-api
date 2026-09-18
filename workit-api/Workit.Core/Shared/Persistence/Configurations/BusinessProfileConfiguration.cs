@@ -31,11 +31,19 @@ public sealed class BusinessProfileConfiguration : IEntityTypeConfiguration<Busi
         builder.Property(businessProfile => businessProfile.Phone)
             .HasMaxLength(BusinessProfile.MaxPhoneLength);
 
+        builder.Property(businessProfile => businessProfile.Nipt)
+            .HasMaxLength(BusinessProfile.NiptLength)
+            .IsRequired();
+
         builder.Property(businessProfile => businessProfile.CreatedAt)
             .IsRequired();
 
         builder.HasIndex(businessProfile => businessProfile.UserId)
             .IsUnique();
+
+        builder.HasIndex(businessProfile => businessProfile.Nipt)
+            .IsUnique()
+            .HasDatabaseName("ix_business_profiles_nipt");
 
         builder.HasOne<User>()
             .WithOne()

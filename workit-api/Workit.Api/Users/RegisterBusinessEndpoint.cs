@@ -1,4 +1,5 @@
 using MediatR;
+using Workit.Api.Common.Auth;
 using Workit.Api.Common.Routing;
 using Workit.Core.Businesses;
 
@@ -10,6 +11,7 @@ public sealed class RegisterBusinessEndpoint : IRouteMapper
     {
         app.MapPost("/auth/register/business", RegisterAsync)
             .AllowAnonymous()
+            .RequireRateLimiting(RateLimitPolicies.Auth)
             .Produces<RegisterBusiness.Response>(StatusCodes.Status201Created)
             .WithName(nameof(RegisterBusiness))
             .WithTags("Auth");

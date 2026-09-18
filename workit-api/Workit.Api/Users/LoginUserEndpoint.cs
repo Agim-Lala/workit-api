@@ -1,4 +1,5 @@
 using MediatR;
+using Workit.Api.Common.Auth;
 using Workit.Api.Common.Routing;
 using Workit.Core.Users;
 
@@ -10,6 +11,7 @@ public sealed class LoginUserEndpoint : IRouteMapper
     {
         app.MapPost("/auth/login", LoginAsync)
             .AllowAnonymous()
+            .RequireRateLimiting(RateLimitPolicies.Auth)
             .WithName(nameof(LoginUser))
             .WithTags("Auth");
     }

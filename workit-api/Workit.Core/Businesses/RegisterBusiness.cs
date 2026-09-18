@@ -1,8 +1,11 @@
+using System.Text.RegularExpressions;
 using FluentValidation;
 using MediatR;
 using Microsoft.EntityFrameworkCore;
+using Microsoft.Extensions.Logging;
 using Npgsql;
 using Workit.Core.Businesses.Domain;
+using Workit.Core.Shared.Email;
 using Workit.Core.Shared.EnvironmentUtils;
 using Workit.Core.Shared.Exceptions;
 using Workit.Core.Shared.Localization;
@@ -16,8 +19,10 @@ using Workit.Core.Users.Shared;
 
 namespace Workit.Core.Businesses;
 
-public static class RegisterBusiness
+public static partial class RegisterBusiness
 {
+    private const string NiptDatabaseConstraintName = "ix_business_profiles_nipt";
+
     public sealed record Request(
         string Email,
         string Password,
@@ -25,6 +30,7 @@ public static class RegisterBusiness
         string FullAddress,
         decimal Latitude,
         decimal Longitude,
+        string Nipt,
         string? Phone = null) : IRequest<Response>;
 
     public sealed record Response(UserDto User, string AccessToken, DateTimeOffset ExpiresAt);
@@ -64,6 +70,14 @@ public static class RegisterBusiness
             RuleFor(request => request.Longitude)
                 .InclusiveBetween(-180m, 180m);
 
+            RuleFor(request => request.Nipt)
+                .Cascade(CascadeMode.Stop)
+                .NotEmpty()
+                .Must(BeAValidNiptFormat)
+                .WithMessage(_ => localizer.Translate("validation.business.niptInvalidFormat"))
+                .MustAsync(BeAvailableNipt)
+                .WithMessage(_ => localizer.Translate("validation.business.niptAlreadyRegistered"));
+
             RuleFor(request => request.Phone)
                 .MaximumLength(BusinessProfile.MaxPhoneLength)
                 .When(request => !string.IsNullOrWhiteSpace(request.Phone));
@@ -75,15 +89,33 @@ public static class RegisterBusiness
             return !await db.Set<User>()
                 .AnyAsync(user => user.Email == normalizedEmail, cancellationToken);
         }
+
+        private static bool BeAValidNiptFormat(string nipt)
+        {
+            return NiptFormat().IsMatch(BusinessProfile.NormalizeNipt(nipt));
+        }
+
+        private async Task<bool> BeAvailableNipt(string nipt, CancellationToken cancellationToken)
+        {
+            var normalizedNipt = BusinessProfile.NormalizeNipt(nipt);
+            return !await db.Set<BusinessProfile>()
+                .AnyAsync(businessProfile => businessProfile.Nipt == normalizedNipt, cancellationToken);
+        }
     }
+
+    [GeneratedRegex("^[A-Z]\\d{8}[A-Z]$")]
+    private static partial Regex NiptFormat();
 
     internal sealed class Handler(
         IDataWriter dataWriter,
         IPasswordHasher passwordHasher,
         IClock clock,
         IAccessTokenCreator accessTokenCreator,
+        ITokenService tokenService,
+        IEmailSender emailSender,
         WorkitSettings settings,
-        ILocalizer localizer)
+        ILocalizer localizer,
+        ILogger<Handler> logger)
         : IRequestHandler<Request, Response>
     {
         public async Task<Response> Handle(Request request, CancellationToken cancellationToken)
@@ -100,8 +132,12 @@ public static class RegisterBusiness
                 request.FullAddress,
                 request.Latitude,
                 request.Longitude,
+                request.Nipt,
                 now,
                 request.Phone);
+
+            var (plainToken, tokenHash) = tokenService.GenerateToken();
+            user.SetEmailConfirmationToken(tokenHash, now.AddHours(settings.Email.ConfirmationTokenExpirationInHours));
 
             try
             {
@@ -110,10 +146,16 @@ public static class RegisterBusiness
                     .Add(businessProfile)
                     .SaveAsync(cancellationToken);
             }
+            catch (DbUpdateException exception) when (IsUniqueViolation(exception, NiptDatabaseConstraintName))
+            {
+                throw new DomainException("error.niptAlreadyRegistered");
+            }
             catch (DbUpdateException exception) when (IsUniqueViolation(exception))
             {
                 throw new DomainException("error.emailAlreadyRegistered");
             }
+
+            await EmailConfirmationSender.SendAsync(emailSender, settings, logger, user.Email, plainToken, cancellationToken);
 
             return CreateResponse(user, now, accessTokenCreator, settings, localizer);
         }
@@ -127,14 +169,15 @@ public static class RegisterBusiness
         {
             var expiresAt = now.AddMinutes(settings.Token.ExpirationInMinutes);
             return new Response(
-                new UserDto(user.Id, user.Email, user.Role, localizer.Enum(user.Role)),
+                new UserDto(user.Id, user.Email, user.Role, localizer.Enum(user.Role), user.EmailConfirmed),
                 accessTokenCreator.Create(user, expiresAt),
                 expiresAt);
         }
 
-        private static bool IsUniqueViolation(DbUpdateException exception)
+        private static bool IsUniqueViolation(DbUpdateException exception, string? constraintName = null)
         {
-            return exception.InnerException is PostgresException { SqlState: PostgresErrorCodes.UniqueViolation };
+            return exception.InnerException is PostgresException { SqlState: PostgresErrorCodes.UniqueViolation } postgresException
+                && (constraintName is null || postgresException.ConstraintName == constraintName);
         }
     }
 }
