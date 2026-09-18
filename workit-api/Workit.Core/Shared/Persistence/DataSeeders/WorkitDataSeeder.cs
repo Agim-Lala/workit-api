@@ -69,6 +69,7 @@ public sealed class WorkitDataSeeder(
             passwordHasher.Hash(SeedPassword),
             clock.UtcNow,
             role);
+        user.ConfirmEmail();
 
         db.Set<User>().Add(user);
         return user;
@@ -96,6 +97,7 @@ public sealed class WorkitDataSeeder(
                 "Bulevardi Deshmoret e Kombit, Tirana",
                 41.3275m,
                 19.8187m,
+                "K12312345L",
                 now,
                 "+355 69 000 0000");
 

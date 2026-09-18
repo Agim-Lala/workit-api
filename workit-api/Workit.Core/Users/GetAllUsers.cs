@@ -36,7 +36,7 @@ public static class GetAllUsers
             var users = await query
                 .Skip((page - 1) * pageSize)
                 .Take(pageSize)
-                .Select(user => new UserDto(user.Id, user.Email, user.Role, string.Empty))
+                .Select(user => new UserDto(user.Id, user.Email, user.Role, string.Empty, user.EmailConfirmed))
                 .ToListAsync(cancellationToken);
             users = users
                 .Select(user => user with { RoleLabel = localizer.Enum(user.Role) })

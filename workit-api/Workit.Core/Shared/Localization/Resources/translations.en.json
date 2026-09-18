@@ -17,6 +17,8 @@
   "validation.AsyncPredicateValidator": "The specified condition was not met for '{PropertyName}'.",
 
   "validation.user.emailAlreadyRegistered": "Email already registered.",
+  "validation.business.niptInvalidFormat": "'{PropertyName}' is not a valid NIPT (e.g. L12345678A).",
+  "validation.business.niptAlreadyRegistered": "This NIPT is already registered.",
   "validation.jobOpening.endDateNotAllowedForPermanent": "Permanent jobs cannot have an end date.",
   "validation.jobOpening.endDateRequired": "Project and short-term jobs require an end date.",
   "validation.jobOpening.customHoursStartRequired": "Custom-hours shifts require a start time.",
@@ -34,9 +36,17 @@
   "error.unexpected": "An unexpected error occurred.",
   "error.businessProfileNotFound": "Business profile not found.",
   "error.workerProfileNotFound": "Worker profile not found.",
+  "error.workerCvNotFound": "No CV has been uploaded yet.",
+  "error.workerPhotoNotFound": "No profile photo has been uploaded yet.",
+  "error.workerAlreadyVerified": "This worker is already verified.",
+  "error.verificationNotConfigured": "Identity verification is not available yet.",
+  "error.verificationStartFailed": "Identity verification could not be started. Try again.",
   "error.jobOpeningNotFound": "Job opening not found.",
   "error.emailAlreadyRegistered": "Email already registered.",
   "error.invalidCredentials": "Invalid email or password.",
+  "error.niptAlreadyRegistered": "This NIPT is already registered.",
+  "error.confirmationTokenInvalid": "This confirmation link is invalid.",
+  "error.confirmationTokenExpired": "This confirmation link has expired. Request a new one.",
 
   "property.Email": "Email",
   "property.Password": "Password",
@@ -48,6 +58,8 @@
   "property.FullAddress": "Full address",
   "property.Latitude": "Latitude",
   "property.Longitude": "Longitude",
+  "property.Nipt": "NIPT",
+  "property.Token": "Token",
   "property.Title": "Title",
   "property.Description": "Description",
   "property.Role": "Role",
@@ -79,5 +91,9 @@
   "enum.JobOpeningStatus.Cancelled": "Cancelled",
   "enum.UserRole.Worker": "Worker",
   "enum.UserRole.Business": "Business",
-  "enum.UserRole.Admin": "Admin"
+  "enum.UserRole.Admin": "Admin",
+  "enum.WorkerVerificationStatus.NotStarted": "Not started",
+  "enum.WorkerVerificationStatus.Pending": "Pending review",
+  "enum.WorkerVerificationStatus.Verified": "Verified",
+  "enum.WorkerVerificationStatus.Rejected": "Not verified"
 }

@@ -9,9 +9,12 @@ using Microsoft.Extensions.DependencyInjection;
 using Microsoft.Extensions.DependencyInjection.Extensions;
 using Shouldly;
 using Workit.Api.JobOpenings;
+using Workit.Api.Tests.TestDoubles;
 using Workit.Core.Businesses;
 using Workit.Core.JobOpenings;
 using Workit.Core.JobOpenings.Domain;
+using Workit.Core.Shared.IdentityVerification;
+using Workit.Core.Shared.Location;
 using Workit.Core.Shared.Persistence;
 using Workit.Core.Workers;
 
@@ -151,7 +154,8 @@ public sealed class LocalizationEndpointTests
                 "Test Business",
                 "Rruga Test, Tirane",
                 41.3275m,
-                19.8189m));
+                19.8189m,
+                "K12345678A"));
         response.StatusCode.ShouldBe(HttpStatusCode.Created, await response.Content.ReadAsStringAsync());
         var payload = await response.Content.ReadFromJsonAsync<RegisterBusiness.Response>();
         payload.ShouldNotBeNull();
@@ -192,6 +196,12 @@ public sealed class LocalizationEndpointTests
                     services.AddDbContext<ReadAppDbContext>(options => options
                         .UseInMemoryDatabase(databaseName, databaseRoot)
                         .UseInternalServiceProvider(inMemoryProvider));
+
+                    // Never let tests reach the real Nominatim/Stripe third parties.
+                    services.RemoveAll<ICityLookupService>();
+                    services.AddSingleton<ICityLookupService>(new FakeCityLookupService());
+                    services.RemoveAll<IIdentityVerificationProvider>();
+                    services.AddSingleton<IIdentityVerificationProvider, FakeIdentityVerificationProvider>();
                 });
             });
     }

@@ -49,6 +49,11 @@ namespace Workit.Core.Shared.Persistence.Migrations
                         .HasPrecision(9, 6)
                         .HasColumnType("numeric(9,6)");
 
+                    b.Property<string>("Nipt")
+                        .IsRequired()
+                        .HasMaxLength(10)
+                        .HasColumnType("character varying(10)");
+
                     b.Property<string>("Phone")
                         .HasMaxLength(50)
                         .HasColumnType("character varying(50)");
@@ -57,6 +62,10 @@ namespace Workit.Core.Shared.Persistence.Migrations
                         .HasColumnType("uuid");
 
                     b.HasKey("Id");
+
+                    b.HasIndex("Nipt")
+                        .IsUnique()
+                        .HasDatabaseName("ix_business_profiles_nipt");
 
                     b.HasIndex("UserId")
                         .IsUnique();
@@ -181,6 +190,16 @@ namespace Workit.Core.Shared.Persistence.Migrations
                         .HasMaxLength(320)
                         .HasColumnType("character varying(320)");
 
+                    b.Property<DateTimeOffset?>("EmailConfirmationTokenExpiresAt")
+                        .HasColumnType("timestamp with time zone");
+
+                    b.Property<string>("EmailConfirmationTokenHash")
+                        .HasMaxLength(64)
+                        .HasColumnType("character varying(64)");
+
+                    b.Property<bool>("EmailConfirmed")
+                        .HasColumnType("boolean");
+
                     b.Property<string>("PasswordHash")
                         .IsRequired()
                         .HasMaxLength(256)
@@ -196,6 +215,8 @@ namespace Workit.Core.Shared.Persistence.Migrations
                     b.HasIndex("Email")
                         .IsUnique();
 
+                    b.HasIndex("EmailConfirmationTokenHash");
+
                     b.ToTable("users", (string)null);
                 });
 
@@ -205,7 +226,22 @@ namespace Workit.Core.Shared.Persistence.Migrations
                         .ValueGeneratedOnAdd()
                         .HasColumnType("uuid");
 
+                    b.Property<string>("Country")
+                        .HasMaxLength(100)
+                        .HasColumnType("character varying(100)");
+
                     b.Property<DateTimeOffset>("CreatedAt")
+                        .HasColumnType("timestamp with time zone");
+
+                    b.Property<string>("CvOriginalFileName")
+                        .HasMaxLength(255)
+                        .HasColumnType("character varying(255)");
+
+                    b.Property<string>("CvStorageKey")
+                        .HasMaxLength(500)
+                        .HasColumnType("character varying(500)");
+
+                    b.Property<DateTimeOffset?>("CvUploadedAt")
                         .HasColumnType("timestamp with time zone");
 
                     b.Property<string>("FirstName")
@@ -213,19 +249,48 @@ namespace Workit.Core.Shared.Persistence.Migrations
                         .HasMaxLength(100)
                         .HasColumnType("character varying(100)");
 
+                    b.PrimitiveCollection<string[]>("InterestedFields")
+                        .IsRequired()
+                        .HasColumnType("text[]");
+
+                    b.Property<bool>("IsLocationVerified")
+                        .HasColumnType("boolean");
+
                     b.Property<string>("LastName")
                         .IsRequired()
                         .HasMaxLength(100)
                         .HasColumnType("character varying(100)");
+
+                    b.Property<double?>("Latitude")
+                        .HasPrecision(9, 6)
+                        .HasColumnType("double precision");
 
                     b.Property<string>("Location")
                         .IsRequired()
                         .HasMaxLength(200)
                         .HasColumnType("character varying(200)");
 
+                    b.Property<double?>("Longitude")
+                        .HasPrecision(9, 6)
+                        .HasColumnType("double precision");
+
                     b.Property<string>("Phone")
                         .HasMaxLength(50)
                         .HasColumnType("character varying(50)");
+
+                    b.Property<string>("PhotoStorageKey")
+                        .HasMaxLength(500)
+                        .HasColumnType("character varying(500)");
+
+                    b.Property<DateTimeOffset?>("PhotoUploadedAt")
+                        .HasColumnType("timestamp with time zone");
+
+                    b.Property<string>("PreferredShiftTypes")
+                        .IsRequired()
+                        .ValueGeneratedOnAdd()
+                        .HasColumnType("jsonb")
+                        .HasColumnName("PreferredShiftTypes")
+                        .HasDefaultValueSql("'[]'::jsonb");
 
                     b.Property<Guid>("UserId")
                         .HasColumnType("uuid");
@@ -236,6 +301,53 @@ namespace Workit.Core.Shared.Persistence.Migrations
                         .IsUnique();
 
                     b.ToTable("worker_profiles", (string)null);
+                });
+
+            modelBuilder.Entity("Workit.Core.Workers.Domain.WorkerVerification", b =>
+                {
+                    b.Property<Guid>("Id")
+                        .ValueGeneratedOnAdd()
+                        .HasColumnType("uuid");
+
+                    b.Property<DateTimeOffset>("CreatedAt")
+                        .HasColumnType("timestamp with time zone");
+
+                    b.Property<DateTimeOffset?>("DecidedAt")
+                        .HasColumnType("timestamp with time zone");
+
+                    b.Property<string>("Provider")
+                        .IsRequired()
+                        .HasMaxLength(50)
+                        .HasColumnType("character varying(50)");
+
+                    b.Property<string>("ProviderReferenceId")
+                        .IsRequired()
+                        .HasMaxLength(200)
+                        .HasColumnType("character varying(200)");
+
+                    b.Property<string>("RejectionReason")
+                        .HasMaxLength(500)
+                        .HasColumnType("character varying(500)");
+
+                    b.Property<string>("Status")
+                        .IsRequired()
+                        .HasMaxLength(32)
+                        .HasColumnType("character varying(32)");
+
+                    b.Property<DateTimeOffset?>("SubmittedAt")
+                        .HasColumnType("timestamp with time zone");
+
+                    b.Property<Guid>("WorkerProfileId")
+                        .HasColumnType("uuid");
+
+                    b.HasKey("Id");
+
+                    b.HasIndex("ProviderReferenceId");
+
+                    b.HasIndex("WorkerProfileId")
+                        .IsUnique();
+
+                    b.ToTable("worker_verifications", (string)null);
                 });
 
             modelBuilder.Entity("Workit.Core.Businesses.Domain.BusinessProfile", b =>
@@ -261,6 +373,15 @@ namespace Workit.Core.Shared.Persistence.Migrations
                     b.HasOne("Workit.Core.Users.Domain.User", null)
                         .WithOne()
                         .HasForeignKey("Workit.Core.Workers.Domain.WorkerProfile", "UserId")
+                        .OnDelete(DeleteBehavior.Restrict)
+                        .IsRequired();
+                });
+
+            modelBuilder.Entity("Workit.Core.Workers.Domain.WorkerVerification", b =>
+                {
+                    b.HasOne("Workit.Core.Workers.Domain.WorkerProfile", null)
+                        .WithOne()
+                        .HasForeignKey("Workit.Core.Workers.Domain.WorkerVerification", "WorkerProfileId")
                         .OnDelete(DeleteBehavior.Restrict)
                         .IsRequired();
                 });

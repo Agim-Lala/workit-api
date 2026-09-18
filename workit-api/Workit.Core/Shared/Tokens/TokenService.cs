@@ -34,9 +34,9 @@ public sealed class TokenService : ITokenService
             Encoding.UTF8.GetBytes(tokenHash));
     }
 
-    private static string HashToken(string token)
+    public string HashToken(string plainToken)
     {
-        var bytes = SHA256.HashData(Encoding.UTF8.GetBytes(token));
+        var bytes = SHA256.HashData(Encoding.UTF8.GetBytes(plainToken));
         return Convert.ToHexString(bytes);
     }
 }

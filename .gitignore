@@ -8,6 +8,9 @@ obj/
 [Bb]in/
 [Oo]bj/
 
+# Local file storage for uploaded worker CVs/photos (see IFileStorage)
+App_Data/
+
 *.user
 *.suo
 *.log
@@ -29,3 +32,6 @@ workit-frontend/coverage/
 
 # frontend lives in its own repo (workit-frontend.git)
 workit-frontend/
+
+# local session recap notes (see wrap-up skill)
+docs/sessions/

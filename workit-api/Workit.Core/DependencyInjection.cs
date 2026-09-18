@@ -4,7 +4,11 @@ using FluentValidation;
 using MediatR;
 using Microsoft.Extensions.DependencyInjection;
 using Workit.Core.Shared.Behaviours;
+using Workit.Core.Shared.Email;
+using Workit.Core.Shared.EnvironmentUtils;
+using Workit.Core.Shared.IdentityVerification;
 using Workit.Core.Shared.Localization;
+using Workit.Core.Shared.Location;
 using Workit.Core.Shared.PasswordHashers;
 using Workit.Core.Shared.Persistence.DataMigrators;
 using Workit.Core.Shared.Persistence.DataSeeders;
@@ -12,6 +16,7 @@ using Workit.Core.Shared.Persistence.DataWriters;
 using Workit.Core.Shared.Persistence.GenericQueries;
 using Workit.Core.Shared.Resiliency;
 using Workit.Core.Shared.Services;
+using Workit.Core.Shared.Storage;
 using Workit.Core.Shared.Time;
 using Workit.Core.Shared.Tokens;
 
@@ -39,6 +44,21 @@ public static class DependencyInjection
         services.AddTransient<IAccessTokenCreator, JwtAccessTokenCreator>();
         services.AddTransient<ITokenService, TokenService>();
         services.AddSingleton<IClock, SystemClock>();
+        services.AddScoped<IFileStorage, LocalDiskFileStorage>();
+        services.AddTransient<IEmailSender, SmtpEmailSender>();
+
+        services.AddHttpClient<ICityLookupService, NominatimCityLookupService>(client =>
+        {
+            client.BaseAddress = new Uri("https://nominatim.openstreetmap.org/");
+            // Nominatim's usage policy requires a descriptive, reachable User-Agent; update the
+            // contact before relying on this in production (see nominatim.org/release-docs/latest/api/Usage-Policy).
+            client.DefaultRequestHeaders.UserAgent.ParseAdd("WorkitApp/1.0 (+https://workit.example; contact: support@workit.example)");
+        });
+
+        services.AddHttpClient<IIdentityVerificationProvider, StripeIdentityVerificationProvider>(client =>
+        {
+            client.BaseAddress = new Uri("https://api.stripe.com/v1/");
+        });
 
         return services;
     }

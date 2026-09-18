@@ -7,7 +7,11 @@ public sealed record WorkitSettings(
     TokenSettings Token,
     SentrySettings Sentry,
     CorsSettings Cors,
-    AuthSettings Auth)
+    AuthSettings Auth,
+    StorageSettings Storage,
+    StripeIdentitySettings StripeIdentity,
+    EmailSettings Email,
+    RateLimitSettings RateLimit)
 {
     public static WorkitSettings FromEnvironment()
     {
@@ -27,7 +31,24 @@ public sealed record WorkitSettings(
                 Get("SENTRY_ENVIRONMENT", "development")),
             new CorsSettings(Get("CORS_ALLOWED_ORIGINS", "http://localhost:3000,http://localhost:5173,http://localhost:5187")
                 .Split(',', StringSplitOptions.RemoveEmptyEntries | StringSplitOptions.TrimEntries)),
-            new AuthSettings(GetBool("AUTH_ENABLE_WHITELIST", false)));
+            new AuthSettings(GetBool("AUTH_ENABLE_WHITELIST", false)),
+            new StorageSettings(Get("STORAGE_ROOT_PATH", "App_Data/uploads")),
+            new StripeIdentitySettings(
+                GetOptional("STRIPE_SECRET_KEY"),
+                GetOptional("STRIPE_WEBHOOK_SECRET")),
+            new EmailSettings(
+                GetOptional("SMTP_HOST"),
+                GetInt("SMTP_PORT", 587),
+                GetOptional("SMTP_USERNAME"),
+                GetOptional("SMTP_PASSWORD"),
+                GetBool("SMTP_ENABLE_SSL", true),
+                Get("EMAIL_FROM_ADDRESS", "no-reply@workit.al"),
+                Get("EMAIL_FROM_NAME", "Workit"),
+                Get("EMAIL_CONFIRMATION_BASE_URL", "http://localhost:5173/confirm-email"),
+                GetInt("EMAIL_CONFIRMATION_TOKEN_EXPIRATION_IN_HOURS", 24)),
+            new RateLimitSettings(
+                GetInt("AUTH_RATE_LIMIT_PERMIT_LIMIT", 10),
+                GetInt("AUTH_RATE_LIMIT_WINDOW_IN_SECONDS", 60)));
     }
 
     private static string Get(string name, string fallback)
@@ -65,3 +86,40 @@ public sealed record TokenSettings(string Secret, int ExpirationInMinutes = 60, 
 public sealed record SentrySettings(string? Dsn = null, double TracesSampleRate = 1.0, string Environment = "development");
 public sealed record CorsSettings(string[] AllowedOrigins);
 public sealed record AuthSettings(bool EnableWhitelist = false);
+
+/// <summary>Where uploaded worker documents (CV, photo) are written. Local disk today; swap the
+/// <see cref="Workit.Core.Shared.Storage.IFileStorage"/> implementation to move to cloud storage.</summary>
+public sealed record StorageSettings(string RootPath);
+
+/// <summary>
+/// Credentials for the Stripe Identity hosted verification flow. Test-mode keys
+/// (<c>sk_test_...</c>) are free — create them at https://dashboard.stripe.com/test/apikeys
+/// after activating Identity at https://dashboard.stripe.com/identity/application. Null until
+/// configured; verification requests fail clearly rather than attempting the call.
+/// </summary>
+public sealed record StripeIdentitySettings(string? SecretKey, string? WebhookSecret)
+{
+    public bool IsConfigured => !string.IsNullOrWhiteSpace(SecretKey);
+}
+
+/// <summary>
+/// SMTP credentials for transactional email (registration confirmation links). Null until
+/// <c>SMTP_HOST</c> is configured; sends are skipped with a logged warning rather than attempting
+/// the connection.
+/// </summary>
+public sealed record EmailSettings(
+    string? SmtpHost,
+    int SmtpPort,
+    string? SmtpUsername,
+    string? SmtpPassword,
+    bool EnableSsl,
+    string FromAddress,
+    string FromName,
+    string ConfirmationLinkBaseUrl,
+    int ConfirmationTokenExpirationInHours)
+{
+    public bool IsConfigured => !string.IsNullOrWhiteSpace(SmtpHost);
+}
+
+/// <summary>Fixed-window rate limit applied to the anonymous auth endpoints (register/login).</summary>
+public sealed record RateLimitSettings(int PermitLimit, int WindowInSeconds);

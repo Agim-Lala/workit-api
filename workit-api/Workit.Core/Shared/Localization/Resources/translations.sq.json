@@ -17,6 +17,8 @@
   "validation.AsyncPredicateValidator": "Kushti i kërkuar për '{PropertyName}' nuk u plotësua.",
 
   "validation.user.emailAlreadyRegistered": "Ky email është regjistruar tashmë.",
+  "validation.business.niptInvalidFormat": "'{PropertyName}' nuk është një NIPT i vlefshëm (p.sh. L12345678A).",
+  "validation.business.niptAlreadyRegistered": "Ky NIPT është regjistruar tashmë.",
   "validation.jobOpening.endDateNotAllowedForPermanent": "Punët e përhershme nuk mund të kenë datë përfundimi.",
   "validation.jobOpening.endDateRequired": "Punët me projekt dhe afatshkurtra kërkojnë një datë përfundimi.",
   "validation.jobOpening.customHoursStartRequired": "Turnet me orar të personalizuar kërkojnë një orë fillimi.",
@@ -34,9 +36,17 @@
   "error.unexpected": "Ndodhi një gabim i papritur.",
   "error.businessProfileNotFound": "Profili i biznesit nuk u gjet.",
   "error.workerProfileNotFound": "Profili i punëtorit nuk u gjet.",
+  "error.workerCvNotFound": "Nuk është ngarkuar ende asnjë CV.",
+  "error.workerPhotoNotFound": "Nuk është ngarkuar ende asnjë foto profili.",
+  "error.workerAlreadyVerified": "Ky punëtor është tashmë i verifikuar.",
+  "error.verificationNotConfigured": "Verifikimi i identitetit nuk ofrohet ende.",
+  "error.verificationStartFailed": "Verifikimi i identitetit nuk u nis dot. Provo përsëri.",
   "error.jobOpeningNotFound": "Shpallja e punës nuk u gjet.",
   "error.emailAlreadyRegistered": "Ky email është regjistruar tashmë.",
   "error.invalidCredentials": "Email ose fjalëkalim i pasaktë.",
+  "error.niptAlreadyRegistered": "Ky NIPT është regjistruar tashmë.",
+  "error.confirmationTokenInvalid": "Ky lidhje konfirmimi është i pavlefshëm.",
+  "error.confirmationTokenExpired": "Ky lidhje konfirmimi ka skaduar. Kërko një të re.",
 
   "property.Email": "Email-i",
   "property.Password": "Fjalëkalimi",
@@ -48,6 +58,8 @@
   "property.FullAddress": "Adresa e plotë",
   "property.Latitude": "Gjerësia gjeografike",
   "property.Longitude": "Gjatësia gjeografike",
+  "property.Nipt": "NIPT-i",
+  "property.Token": "Kodi",
   "property.Title": "Titulli",
   "property.Description": "Përshkrimi",
   "property.Role": "Roli",
@@ -79,5 +91,9 @@
   "enum.JobOpeningStatus.Cancelled": "E anuluar",
   "enum.UserRole.Worker": "Punëtor",
   "enum.UserRole.Business": "Biznes",
-  "enum.UserRole.Admin": "Administrator"
+  "enum.UserRole.Admin": "Administrator",
+  "enum.WorkerVerificationStatus.NotStarted": "E panisur",
+  "enum.WorkerVerificationStatus.Pending": "Në shqyrtim",
+  "enum.WorkerVerificationStatus.Verified": "E verifikuar",
+  "enum.WorkerVerificationStatus.Rejected": "E paverifikuar"
 }

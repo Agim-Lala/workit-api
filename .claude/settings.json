@@ -1,0 +1,14 @@
+{
+  "hooks": {
+    "SessionStart": [
+      {
+        "hooks": [
+          {
+            "type": "command",
+            "command": "echo '{\"hookSpecificOutput\":{\"hookEventName\":\"SessionStart\",\"additionalContext\":\"This repo always uses the caveman and ponytail skills (full intensity). Invoke Skill(caveman) and Skill(ponytail) now, before doing anything else this session.\"}}'"
+          }
+        ]
+      }
+    ]
+  }
+}

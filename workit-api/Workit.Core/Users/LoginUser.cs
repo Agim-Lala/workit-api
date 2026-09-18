@@ -57,7 +57,7 @@ public static class LoginUser
 
             var expiresAt = clock.UtcNow.AddMinutes(settings.Token.ExpirationInMinutes);
             return new Response(
-                new UserDto(user.Id, user.Email, user.Role, localizer.Enum(user.Role)),
+                new UserDto(user.Id, user.Email, user.Role, localizer.Enum(user.Role), user.EmailConfirmed),
                 accessTokenCreator.Create(user, expiresAt),
                 expiresAt);
         }

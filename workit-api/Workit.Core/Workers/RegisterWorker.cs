@@ -1,7 +1,9 @@
 using FluentValidation;
 using MediatR;
 using Microsoft.EntityFrameworkCore;
+using Microsoft.Extensions.Logging;
 using Npgsql;
+using Workit.Core.Shared.Email;
 using Workit.Core.Shared.EnvironmentUtils;
 using Workit.Core.Shared.Exceptions;
 using Workit.Core.Shared.Localization;
@@ -79,8 +81,11 @@ public static class RegisterWorker
         IPasswordHasher passwordHasher,
         IClock clock,
         IAccessTokenCreator accessTokenCreator,
+        ITokenService tokenService,
+        IEmailSender emailSender,
         WorkitSettings settings,
-        ILocalizer localizer)
+        ILocalizer localizer,
+        ILogger<Handler> logger)
         : IRequestHandler<Request, Response>
     {
         public async Task<Response> Handle(Request request, CancellationToken cancellationToken)
@@ -99,6 +104,9 @@ public static class RegisterWorker
                 now,
                 request.Phone);
 
+            var (plainToken, tokenHash) = tokenService.GenerateToken();
+            user.SetEmailConfirmationToken(tokenHash, now.AddHours(settings.Email.ConfirmationTokenExpirationInHours));
+
             try
             {
                 await dataWriter
@@ -110,6 +118,8 @@ public static class RegisterWorker
             {
                 throw new DomainException("error.emailAlreadyRegistered");
             }
+
+            await EmailConfirmationSender.SendAsync(emailSender, settings, logger, user.Email, plainToken, cancellationToken);
 
             return CreateResponse(user, now, accessTokenCreator, settings, localizer);
         }
@@ -123,7 +133,7 @@ public static class RegisterWorker
         {
             var expiresAt = now.AddMinutes(settings.Token.ExpirationInMinutes);
             return new Response(
-                new UserDto(user.Id, user.Email, user.Role, localizer.Enum(user.Role)),
+                new UserDto(user.Id, user.Email, user.Role, localizer.Enum(user.Role), user.EmailConfirmed),
                 accessTokenCreator.Create(user, expiresAt),
                 expiresAt);
         }
