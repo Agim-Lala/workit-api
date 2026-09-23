@@ -98,7 +98,7 @@ public sealed class AuthEndpointTests
         businessProfile.BusinessName.ShouldBe("Test Business");
         businessProfile.FullAddress.ShouldBe("Rruga Test, Tirane");
         businessProfile.Nipt.ShouldBe("K12345678A");
-        payload.User.EmailConfirmed.ShouldBeFalse();
+        payload.User.EmailConfirmationStatus.ShouldBe(EmailConfirmationStatus.Pending);
     }
 
     [Theory]
@@ -168,9 +168,10 @@ public sealed class AuthEndpointTests
         registerResponse.StatusCode.ShouldBe(HttpStatusCode.Created, await registerResponse.Content.ReadAsStringAsync());
 
         var emailSender = (FakeEmailSender)factory.Services.GetRequiredService<IEmailSender>();
-        var sentEmail = emailSender.SentEmails.ShouldHaveSingleItem();
+        var sentEmail = (await WaitForSentEmailAsync(emailSender)).ShouldHaveSingleItem();
         sentEmail.ToAddress.ShouldBe("worker@example.com");
-        var token = ExtractConfirmationToken(sentEmail.HtmlBody);
+        sentEmail.TemplateId.ShouldBe("confirm-email");
+        var token = ExtractConfirmationToken(sentEmail.Variables["confirmationLink"]);
 
         var confirmResponse = await client.PostAsJsonAsync("/auth/confirm-email", new ConfirmEmail.Request(token));
 
@@ -332,7 +333,7 @@ public sealed class AuthEndpointTests
                         .UseInMemoryDatabase(databaseName, databaseRoot)
                         .UseInternalServiceProvider(inMemoryProvider));
 
-                    // Never let tests reach the real Nominatim/Stripe/SMTP third parties.
+                    // Never let tests reach the real Nominatim/Stripe/Resend third parties.
                     services.RemoveAll<ICityLookupService>();
                     services.AddSingleton<ICityLookupService>(new FakeCityLookupService());
                     services.RemoveAll<IIdentityVerificationProvider>();
@@ -356,9 +357,22 @@ public sealed class AuthEndpointTests
         return accessTokenCreator.Create(user, DateTimeOffset.UtcNow.AddMinutes(30));
     }
 
-    private static string ExtractConfirmationToken(string htmlBody)
+    private static async Task<IReadOnlyList<(string ToAddress, string TemplateId, IReadOnlyDictionary<string, string> Variables)>> WaitForSentEmailAsync(
+        FakeEmailSender emailSender,
+        TimeSpan? timeout = null)
     {
-        var match = Regex.Match(htmlBody, "token=([^\"&]+)");
+        var deadline = DateTime.UtcNow + (timeout ?? TimeSpan.FromSeconds(2));
+        while (emailSender.SentEmails.Count == 0 && DateTime.UtcNow < deadline)
+        {
+            await Task.Delay(10);
+        }
+
+        return emailSender.SentEmails;
+    }
+
+    private static string ExtractConfirmationToken(string confirmationLink)
+    {
+        var match = Regex.Match(confirmationLink, "token=([^\"&]+)");
         match.Success.ShouldBeTrue();
         return Uri.UnescapeDataString(match.Groups[1].Value);
     }

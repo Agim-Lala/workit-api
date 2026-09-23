@@ -5,12 +5,15 @@ using Workit.Core.Shared.EnvironmentUtils;
 namespace Workit.Core.Users.Shared;
 
 /// <summary>
-/// Builds and sends the "confirm your email" link shared by worker and business registration.
-/// Delivery failures are logged, never thrown — a broken/unconfigured mail provider must not
-/// block account creation.
+/// Builds and sends the "confirm your email" link shared by worker and business registration,
+/// via the Resend template with alias <c>confirm-email</c>
+/// (see docs/email-templates/confirm-email.html for its source). Delivery failures are logged,
+/// never thrown — a broken/unconfigured mail provider must not block account creation.
 /// </summary>
 public static class EmailConfirmationSender
 {
+    private const string TemplateId = "confirm-email";
+
     public static async Task SendAsync(
         IEmailSender emailSender,
         WorkitSettings settings,
@@ -20,17 +23,15 @@ public static class EmailConfirmationSender
         CancellationToken cancellationToken)
     {
         var confirmationLink = $"{settings.Email.ConfirmationLinkBaseUrl}?token={Uri.EscapeDataString(plainToken)}";
-        const string subject = "Confirm your Workit email";
-        var body = $"""
-            <p>Welcome to Workit.</p>
-            <p>Confirm your email address to finish setting up your account:</p>
-            <p><a href="{confirmationLink}">{confirmationLink}</a></p>
-            <p>This link expires in {settings.Email.ConfirmationTokenExpirationInHours} hours.</p>
-            """;
+        var variables = new Dictionary<string, string>
+        {
+            ["confirmationLink"] = confirmationLink,
+            ["expirationInHours"] = settings.Email.ConfirmationTokenExpirationInHours.ToString()
+        };
 
         try
         {
-            await emailSender.SendAsync(toEmail, subject, body, cancellationToken);
+            await emailSender.SendTemplateAsync(toEmail, TemplateId, variables, cancellationToken);
         }
         catch (Exception exception) when (exception is not OperationCanceledException)
         {

@@ -45,7 +45,11 @@ public static class DependencyInjection
         services.AddTransient<ITokenService, TokenService>();
         services.AddSingleton<IClock, SystemClock>();
         services.AddScoped<IFileStorage, LocalDiskFileStorage>();
-        services.AddTransient<IEmailSender, SmtpEmailSender>();
+        services.AddSingleton<IEmailConfirmationQueue, EmailConfirmationQueue>();
+        services.AddHttpClient<IEmailSender, ResendEmailSender>(client =>
+        {
+            client.BaseAddress = new Uri("https://api.resend.com/");
+        });
 
         services.AddHttpClient<ICityLookupService, NominatimCityLookupService>(client =>
         {

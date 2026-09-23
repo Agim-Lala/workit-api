@@ -1,7 +1,6 @@
 using FluentValidation;
 using MediatR;
 using Microsoft.EntityFrameworkCore;
-using Microsoft.Extensions.Logging;
 using Npgsql;
 using Workit.Core.Shared.Email;
 using Workit.Core.Shared.EnvironmentUtils;
@@ -82,10 +81,9 @@ public static class RegisterWorker
         IClock clock,
         IAccessTokenCreator accessTokenCreator,
         ITokenService tokenService,
-        IEmailSender emailSender,
+        IEmailConfirmationQueue emailConfirmationQueue,
         WorkitSettings settings,
-        ILocalizer localizer,
-        ILogger<Handler> logger)
+        ILocalizer localizer)
         : IRequestHandler<Request, Response>
     {
         public async Task<Response> Handle(Request request, CancellationToken cancellationToken)
@@ -119,7 +117,7 @@ public static class RegisterWorker
                 throw new DomainException("error.emailAlreadyRegistered");
             }
 
-            await EmailConfirmationSender.SendAsync(emailSender, settings, logger, user.Email, plainToken, cancellationToken);
+            emailConfirmationQueue.Enqueue(user.Email, plainToken);
 
             return CreateResponse(user, now, accessTokenCreator, settings, localizer);
         }
@@ -132,8 +130,15 @@ public static class RegisterWorker
             ILocalizer localizer)
         {
             var expiresAt = now.AddMinutes(settings.Token.ExpirationInMinutes);
+            var emailConfirmationStatus = user.GetEmailConfirmationStatus(now);
             return new Response(
-                new UserDto(user.Id, user.Email, user.Role, localizer.Enum(user.Role), user.EmailConfirmed),
+                new UserDto(
+                    user.Id,
+                    user.Email,
+                    user.Role,
+                    localizer.Enum(user.Role),
+                    emailConfirmationStatus,
+                    localizer.Enum(emailConfirmationStatus)),
                 accessTokenCreator.Create(user, expiresAt),
                 expiresAt);
         }

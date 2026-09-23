@@ -11,6 +11,7 @@ using Microsoft.IdentityModel.Tokens;
 using Microsoft.OpenApi.Models;
 using Serilog;
 using Workit.Api.Common.Auth;
+using Workit.Api.Common.BackgroundServices;
 using Workit.Api.Common.Persistence;
 using Workit.Api.Common.Routing;
 using Workit.Api.Common.Swagger;
@@ -41,6 +42,7 @@ if (!string.IsNullOrWhiteSpace(settings.Sentry.Dsn))
 
 builder.Services.AddSingleton(settings);
 builder.Services.AddCoreServices();
+builder.Services.AddHostedService<EmailConfirmationBackgroundService>();
 builder.Services.AddHealthChecks();
 builder.Services.AddEndpointsApiExplorer();
 builder.Services.AddSwaggerGen(options =>

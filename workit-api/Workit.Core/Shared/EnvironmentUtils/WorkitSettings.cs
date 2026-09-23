@@ -37,11 +37,7 @@ public sealed record WorkitSettings(
                 GetOptional("STRIPE_SECRET_KEY"),
                 GetOptional("STRIPE_WEBHOOK_SECRET")),
             new EmailSettings(
-                GetOptional("SMTP_HOST"),
-                GetInt("SMTP_PORT", 587),
-                GetOptional("SMTP_USERNAME"),
-                GetOptional("SMTP_PASSWORD"),
-                GetBool("SMTP_ENABLE_SSL", true),
+                GetOptional("RESEND_API_KEY"),
                 Get("EMAIL_FROM_ADDRESS", "no-reply@workit.al"),
                 Get("EMAIL_FROM_NAME", "Workit"),
                 Get("EMAIL_CONFIRMATION_BASE_URL", "http://localhost:5173/confirm-email"),
@@ -103,22 +99,18 @@ public sealed record StripeIdentitySettings(string? SecretKey, string? WebhookSe
 }
 
 /// <summary>
-/// SMTP credentials for transactional email (registration confirmation links). Null until
-/// <c>SMTP_HOST</c> is configured; sends are skipped with a logged warning rather than attempting
-/// the connection.
+/// Resend API key for transactional email (registration confirmation links). Null until
+/// <c>RESEND_API_KEY</c> is configured; sends are skipped with a logged warning rather than
+/// attempting the call.
 /// </summary>
 public sealed record EmailSettings(
-    string? SmtpHost,
-    int SmtpPort,
-    string? SmtpUsername,
-    string? SmtpPassword,
-    bool EnableSsl,
+    string? ApiKey,
     string FromAddress,
     string FromName,
     string ConfirmationLinkBaseUrl,
     int ConfirmationTokenExpirationInHours)
 {
-    public bool IsConfigured => !string.IsNullOrWhiteSpace(SmtpHost);
+    public bool IsConfigured => !string.IsNullOrWhiteSpace(ApiKey);
 }
 
 /// <summary>Fixed-window rate limit applied to the anonymous auth endpoints (register/login).</summary>

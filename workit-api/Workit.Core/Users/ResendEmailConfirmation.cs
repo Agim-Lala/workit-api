@@ -1,7 +1,6 @@
 using FluentValidation;
 using MediatR;
 using Microsoft.EntityFrameworkCore;
-using Microsoft.Extensions.Logging;
 using Workit.Core.Shared.Email;
 using Workit.Core.Shared.EnvironmentUtils;
 using Workit.Core.Shared.Persistence;
@@ -38,10 +37,9 @@ public static class ResendEmailConfirmation
         AppDbContext db,
         IDataWriter dataWriter,
         ITokenService tokenService,
-        IEmailSender emailSender,
+        IEmailConfirmationQueue emailConfirmationQueue,
         WorkitSettings settings,
-        IClock clock,
-        ILogger<Handler> logger)
+        IClock clock)
         : IRequestHandler<Request, Response>
     {
         public async Task<Response> Handle(Request request, CancellationToken cancellationToken)
@@ -57,7 +55,7 @@ public static class ResendEmailConfirmation
                 user.SetEmailConfirmationToken(tokenHash, now.AddHours(settings.Email.ConfirmationTokenExpirationInHours));
                 await dataWriter.Update(user).SaveAsync(cancellationToken);
 
-                await EmailConfirmationSender.SendAsync(emailSender, settings, logger, user.Email, plainToken, cancellationToken);
+                emailConfirmationQueue.Enqueue(user.Email, plainToken);
             }
 
             return new Response();

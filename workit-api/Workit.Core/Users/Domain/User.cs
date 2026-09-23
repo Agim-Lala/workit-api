@@ -57,4 +57,18 @@ public sealed class User
         EmailConfirmationTokenHash = null;
         EmailConfirmationTokenExpiresAt = null;
     }
+
+    /// <summary>Derived from <see cref="EmailConfirmed"/>/<see cref="EmailConfirmationTokenExpiresAt"/> —
+    /// not persisted, so it can't drift from them.</summary>
+    public EmailConfirmationStatus GetEmailConfirmationStatus(DateTimeOffset now)
+    {
+        if (EmailConfirmed)
+        {
+            return EmailConfirmationStatus.Confirmed;
+        }
+
+        return EmailConfirmationTokenExpiresAt.HasValue && EmailConfirmationTokenExpiresAt <= now
+            ? EmailConfirmationStatus.Expired
+            : EmailConfirmationStatus.Pending;
+    }
 }

@@ -2,7 +2,6 @@ using System.Text.RegularExpressions;
 using FluentValidation;
 using MediatR;
 using Microsoft.EntityFrameworkCore;
-using Microsoft.Extensions.Logging;
 using Npgsql;
 using Workit.Core.Businesses.Domain;
 using Workit.Core.Shared.Email;
@@ -112,10 +111,9 @@ public static partial class RegisterBusiness
         IClock clock,
         IAccessTokenCreator accessTokenCreator,
         ITokenService tokenService,
-        IEmailSender emailSender,
+        IEmailConfirmationQueue emailConfirmationQueue,
         WorkitSettings settings,
-        ILocalizer localizer,
-        ILogger<Handler> logger)
+        ILocalizer localizer)
         : IRequestHandler<Request, Response>
     {
         public async Task<Response> Handle(Request request, CancellationToken cancellationToken)
@@ -155,7 +153,7 @@ public static partial class RegisterBusiness
                 throw new DomainException("error.emailAlreadyRegistered");
             }
 
-            await EmailConfirmationSender.SendAsync(emailSender, settings, logger, user.Email, plainToken, cancellationToken);
+            emailConfirmationQueue.Enqueue(user.Email, plainToken);
 
             return CreateResponse(user, now, accessTokenCreator, settings, localizer);
         }
@@ -168,8 +166,15 @@ public static partial class RegisterBusiness
             ILocalizer localizer)
         {
             var expiresAt = now.AddMinutes(settings.Token.ExpirationInMinutes);
+            var emailConfirmationStatus = user.GetEmailConfirmationStatus(now);
             return new Response(
-                new UserDto(user.Id, user.Email, user.Role, localizer.Enum(user.Role), user.EmailConfirmed),
+                new UserDto(
+                    user.Id,
+                    user.Email,
+                    user.Role,
+                    localizer.Enum(user.Role),
+                    emailConfirmationStatus,
+                    localizer.Enum(emailConfirmationStatus)),
                 accessTokenCreator.Create(user, expiresAt),
                 expiresAt);
         }

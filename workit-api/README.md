@@ -124,12 +124,11 @@ Content-Type: application/json
 { "email": "user@example.com" }
 ```
 
-Outbound email is sent over SMTP; until `SMTP_HOST` is configured, sends are
-skipped with a logged warning instead of failing registration. Configure with
-`SMTP_HOST`, `SMTP_PORT` (default `587`), `SMTP_USERNAME`, `SMTP_PASSWORD`,
-`SMTP_ENABLE_SSL` (default `true`), `EMAIL_FROM_ADDRESS`, `EMAIL_FROM_NAME`,
-`EMAIL_CONFIRMATION_BASE_URL` (the frontend page that reads `?token=`), and
-`EMAIL_CONFIRMATION_TOKEN_EXPIRATION_IN_HOURS` (default `24`).
+Outbound email is sent via [Resend](https://resend.com); until `RESEND_API_KEY`
+is configured, sends are skipped with a logged warning instead of failing
+registration. Configure with `RESEND_API_KEY`, `EMAIL_FROM_ADDRESS`,
+`EMAIL_FROM_NAME`, `EMAIL_CONFIRMATION_BASE_URL` (the frontend page that reads
+`?token=`), and `EMAIL_CONFIRMATION_TOKEN_EXPIRATION_IN_HOURS` (default `24`).
 
 ## Localization
 

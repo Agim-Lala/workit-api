@@ -55,9 +55,17 @@ public static class LoginUser
                 throw new DomainException("error.invalidCredentials");
             }
 
-            var expiresAt = clock.UtcNow.AddMinutes(settings.Token.ExpirationInMinutes);
+            var now = clock.UtcNow;
+            var expiresAt = now.AddMinutes(settings.Token.ExpirationInMinutes);
+            var emailConfirmationStatus = user.GetEmailConfirmationStatus(now);
             return new Response(
-                new UserDto(user.Id, user.Email, user.Role, localizer.Enum(user.Role), user.EmailConfirmed),
+                new UserDto(
+                    user.Id,
+                    user.Email,
+                    user.Role,
+                    localizer.Enum(user.Role),
+                    emailConfirmationStatus,
+                    localizer.Enum(emailConfirmationStatus)),
                 accessTokenCreator.Create(user, expiresAt),
                 expiresAt);
         }
