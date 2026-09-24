@@ -45,6 +45,8 @@
   "error.emailAlreadyRegistered": "Ky email është regjistruar tashmë.",
   "error.invalidCredentials": "Email ose fjalëkalim i pasaktë.",
   "error.niptAlreadyRegistered": "Ky NIPT është regjistruar tashmë.",
+  "error.businessAddressNotFound": "Nuk e gjetëm këtë adresë. Kontrollojeni ose zgjidhni vendndodhjen në hartë.",
+  "error.addressNotFound": "Nuk u gjet asnjë adresë në këtë vendndodhje.",
   "error.confirmationTokenInvalid": "Ky lidhje konfirmimi është i pavlefshëm.",
   "error.confirmationTokenExpired": "Ky lidhje konfirmimi ka skaduar. Kërko një të re.",
   "error.jobOpeningFullyStaffed": "Kjo shpallje pune ka tashmë të gjithë punëtorët e nevojshëm.",

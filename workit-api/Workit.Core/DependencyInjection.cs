@@ -59,6 +59,12 @@ public static class DependencyInjection
             client.DefaultRequestHeaders.UserAgent.ParseAdd("WorkitApp/1.0 (+https://workit.example; contact: support@workit.example)");
         });
 
+        services.AddHttpClient<IAddressLookupService, OsmAddressLookupService>(client =>
+        {
+            // Same User-Agent requirement as above; this client calls Nominatim and Photon by absolute URL.
+            client.DefaultRequestHeaders.UserAgent.ParseAdd("WorkitApp/1.0 (+https://workit.example; contact: support@workit.example)");
+        });
+
         services.AddHttpClient<IIdentityVerificationProvider, StripeIdentityVerificationProvider>(client =>
         {
             client.BaseAddress = new Uri("https://api.stripe.com/v1/");
