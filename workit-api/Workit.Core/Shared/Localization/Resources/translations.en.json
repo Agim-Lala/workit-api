@@ -45,6 +45,8 @@
   "error.emailAlreadyRegistered": "Email already registered.",
   "error.invalidCredentials": "Invalid email or password.",
   "error.niptAlreadyRegistered": "This NIPT is already registered.",
+  "error.businessAddressNotFound": "We couldn't find this address. Check it or pick the location on the map.",
+  "error.addressNotFound": "No address found at this location.",
   "error.confirmationTokenInvalid": "This confirmation link is invalid.",
   "error.confirmationTokenExpired": "This confirmation link has expired. Request a new one.",
   "error.jobOpeningFullyStaffed": "This job opening already has all the workers it needs.",

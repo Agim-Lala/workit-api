@@ -105,6 +105,17 @@ builder.Services.AddRateLimiter(options =>
             Window = TimeSpan.FromSeconds(settings.RateLimit.WindowInSeconds),
             QueueLimit = 0
         }));
+
+    // Looser than Auth: autocomplete fires on (debounced) keystrokes. Still capped per IP because
+    // these anonymous endpoints proxy free third-party services that ban abusive callers.
+    options.AddPolicy(RateLimitPolicies.Geocoding, httpContext => RateLimitPartition.GetFixedWindowLimiter(
+        httpContext.Connection.RemoteIpAddress?.ToString() ?? "unknown",
+        _ => new FixedWindowRateLimiterOptions
+        {
+            PermitLimit = 60,
+            Window = TimeSpan.FromMinutes(1),
+            QueueLimit = 0
+        }));
 });
 
 builder.Services.AddDbContext<AppDbContext>(options =>

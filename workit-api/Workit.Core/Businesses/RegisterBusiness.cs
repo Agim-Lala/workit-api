@@ -8,6 +8,7 @@ using Workit.Core.Shared.Email;
 using Workit.Core.Shared.EnvironmentUtils;
 using Workit.Core.Shared.Exceptions;
 using Workit.Core.Shared.Localization;
+using Workit.Core.Shared.Location;
 using Workit.Core.Shared.PasswordHashers;
 using Workit.Core.Shared.Persistence;
 using Workit.Core.Shared.Persistence.DataWriters;
@@ -27,8 +28,8 @@ public static partial class RegisterBusiness
         string Password,
         string BusinessName,
         string FullAddress,
-        decimal Latitude,
-        decimal Longitude,
+        decimal? Latitude,
+        decimal? Longitude,
         string Nipt,
         string? Phone = null) : IRequest<Response>;
 
@@ -113,11 +114,13 @@ public static partial class RegisterBusiness
         ITokenService tokenService,
         IEmailConfirmationQueue emailConfirmationQueue,
         WorkitSettings settings,
-        ILocalizer localizer)
+        ILocalizer localizer,
+        ICityLookupService cityLookupService)
         : IRequestHandler<Request, Response>
     {
         public async Task<Response> Handle(Request request, CancellationToken cancellationToken)
         {
+            var (latitude, longitude) = await ResolveCoordinatesAsync(request, cancellationToken);
             var now = clock.UtcNow;
             var user = new User(
                 request.Email,
@@ -128,8 +131,8 @@ public static partial class RegisterBusiness
                 user.Id,
                 request.BusinessName,
                 request.FullAddress,
-                request.Latitude,
-                request.Longitude,
+                latitude,
+                longitude,
                 request.Nipt,
                 now,
                 request.Phone);
@@ -156,6 +159,22 @@ public static partial class RegisterBusiness
             emailConfirmationQueue.Enqueue(user.Email, plainToken);
 
             return CreateResponse(user, now, accessTokenCreator, settings, localizer);
+        }
+
+        // Clients with a map pin send coordinates; otherwise the typed address is geocoded.
+        // Unlike workers, a business must always have coordinates, so a miss is a hard reject.
+        private async Task<(decimal Latitude, decimal Longitude)> ResolveCoordinatesAsync(
+            Request request,
+            CancellationToken cancellationToken)
+        {
+            if (request is { Latitude: { } latitude, Longitude: { } longitude })
+            {
+                return (latitude, longitude);
+            }
+
+            var match = await cityLookupService.FindAsync(request.FullAddress, cancellationToken)
+                ?? throw new DomainException("error.businessAddressNotFound");
+            return ((decimal)match.Latitude, (decimal)match.Longitude);
         }
 
         private static Response CreateResponse(

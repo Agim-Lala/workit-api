@@ -101,6 +101,54 @@ public sealed class AuthEndpointTests
         payload.User.EmailConfirmationStatus.ShouldBe(EmailConfirmationStatus.Pending);
     }
 
+    [Fact]
+    public async Task Register_business_without_coordinates_geocodes_the_typed_address()
+    {
+        await using var factory = CreateFactory(new CityLookupResult("Tirana", "Albania", 41.33, 19.82));
+        using var client = factory.CreateClient();
+
+        var response = await client.PostAsJsonAsync(
+            "/auth/register/business",
+            new RegisterBusiness.Request(
+                "business@example.com",
+                "password123",
+                "Test Business",
+                "Rruga Myslym Shyri, Tirane",
+                null,
+                null,
+                "K12345678A"));
+
+        response.StatusCode.ShouldBe(HttpStatusCode.Created, await response.Content.ReadAsStringAsync());
+        await using var scope = factory.Services.CreateAsyncScope();
+        var db = scope.ServiceProvider.GetRequiredService<AppDbContext>();
+        var businessProfile = await db.Set<BusinessProfile>().SingleAsync();
+        businessProfile.Latitude.ShouldBe(41.33m);
+        businessProfile.Longitude.ShouldBe(19.82m);
+    }
+
+    [Fact]
+    public async Task Register_business_without_coordinates_rejects_an_unknown_address()
+    {
+        await using var factory = CreateFactory();
+        using var client = factory.CreateClient();
+
+        var response = await client.PostAsJsonAsync(
+            "/auth/register/business",
+            new RegisterBusiness.Request(
+                "business@example.com",
+                "password123",
+                "Test Business",
+                "Nowhere street 999",
+                null,
+                null,
+                "K12345678A"));
+
+        response.StatusCode.ShouldBe(HttpStatusCode.BadRequest);
+        await using var scope = factory.Services.CreateAsyncScope();
+        var db = scope.ServiceProvider.GetRequiredService<AppDbContext>();
+        (await db.Set<BusinessProfile>().AnyAsync()).ShouldBeFalse();
+    }
+
     [Theory]
     [InlineData("")]
     [InlineData("not-a-nipt")]
@@ -309,7 +357,7 @@ public sealed class AuthEndpointTests
         payload.HasNextPage.ShouldBeFalse();
     }
 
-    private static WebApplicationFactory<Program> CreateFactory()
+    private static WebApplicationFactory<Program> CreateFactory(CityLookupResult? cityLookupResult = null)
     {
         var databaseName = $"workit-auth-tests-{Guid.NewGuid()}";
         var databaseRoot = new InMemoryDatabaseRoot();
@@ -335,7 +383,7 @@ public sealed class AuthEndpointTests
 
                     // Never let tests reach the real Nominatim/Stripe/Resend third parties.
                     services.RemoveAll<ICityLookupService>();
-                    services.AddSingleton<ICityLookupService>(new FakeCityLookupService());
+                    services.AddSingleton<ICityLookupService>(new FakeCityLookupService(cityLookupResult));
                     services.RemoveAll<IIdentityVerificationProvider>();
                     services.AddSingleton<IIdentityVerificationProvider, FakeIdentityVerificationProvider>();
                     services.RemoveAll<IEmailSender>();

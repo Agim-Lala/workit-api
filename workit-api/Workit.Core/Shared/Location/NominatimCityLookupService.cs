@@ -1,3 +1,4 @@
+using System.Globalization;
 using System.Net.Http.Json;
 using System.Text.Json.Serialization;
 using Microsoft.Extensions.Logging;
@@ -59,8 +60,8 @@ public sealed class NominatimCityLookupService(
 
         if (string.IsNullOrWhiteSpace(city)
             || string.IsNullOrWhiteSpace(country)
-            || !double.TryParse(place.Lat, out var latitude)
-            || !double.TryParse(place.Lon, out var longitude))
+            || !double.TryParse(place.Lat, CultureInfo.InvariantCulture, out var latitude)
+            || !double.TryParse(place.Lon, CultureInfo.InvariantCulture, out var longitude))
         {
             return null;
         }
