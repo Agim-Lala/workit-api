@@ -2,6 +2,7 @@
 using System;
 using Microsoft.EntityFrameworkCore;
 using Microsoft.EntityFrameworkCore.Infrastructure;
+using Microsoft.EntityFrameworkCore.Migrations;
 using Microsoft.EntityFrameworkCore.Storage.ValueConversion;
 using Npgsql.EntityFrameworkCore.PostgreSQL.Metadata;
 using Workit.Core.Shared.Persistence;
@@ -11,9 +12,11 @@ using Workit.Core.Shared.Persistence;
 namespace Workit.Core.Shared.Persistence.Migrations
 {
     [DbContext(typeof(AppDbContext))]
-    partial class AppDbContextModelSnapshot : ModelSnapshot
+    [Migration("20260925133338_AddWorkerCvText")]
+    partial class AddWorkerCvText
     {
-        protected override void BuildModel(ModelBuilder modelBuilder)
+        /// <inheritdoc />
+        protected override void BuildTargetModel(ModelBuilder modelBuilder)
         {
 #pragma warning disable 612, 618
             modelBuilder
@@ -305,17 +308,9 @@ namespace Workit.Core.Shared.Persistence.Migrations
                     b.Property<DateTimeOffset>("CreatedAt")
                         .HasColumnType("timestamp with time zone");
 
-                    b.PrimitiveCollection<string[]>("CvLanguages")
-                        .IsRequired()
-                        .HasColumnType("text[]");
-
                     b.Property<string>("CvOriginalFileName")
                         .HasMaxLength(255)
                         .HasColumnType("character varying(255)");
-
-                    b.PrimitiveCollection<string[]>("CvRoles")
-                        .IsRequired()
-                        .HasColumnType("text[]");
 
                     b.Property<string>("CvStorageKey")
                         .HasMaxLength(500)
@@ -327,9 +322,6 @@ namespace Workit.Core.Shared.Persistence.Migrations
 
                     b.Property<DateTimeOffset?>("CvUploadedAt")
                         .HasColumnType("timestamp with time zone");
-
-                    b.Property<int?>("CvYearsOfExperience")
-                        .HasColumnType("integer");
 
                     b.Property<string>("FirstName")
                         .IsRequired()

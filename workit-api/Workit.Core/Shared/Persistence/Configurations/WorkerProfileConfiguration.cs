@@ -45,6 +45,17 @@ public sealed class WorkerProfileConfiguration : IEntityTypeConfiguration<Worker
         builder.Property(workerProfile => workerProfile.CvOriginalFileName)
             .HasMaxLength(WorkerProfile.MaxOriginalFileNameLength);
 
+        builder.Property(workerProfile => workerProfile.CvText)
+            .HasMaxLength(WorkerProfile.MaxCvTextLength);
+
+        builder.Property(workerProfile => workerProfile.CvRoles)
+            .HasColumnType("text[]")
+            .IsRequired();
+
+        builder.Property(workerProfile => workerProfile.CvLanguages)
+            .HasColumnType("text[]")
+            .IsRequired();
+
         builder.Property(workerProfile => workerProfile.PhotoStorageKey)
             .HasMaxLength(500);
 

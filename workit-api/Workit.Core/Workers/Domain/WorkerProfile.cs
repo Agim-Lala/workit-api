@@ -9,6 +9,7 @@ public sealed class WorkerProfile
     public const int MaxLocationLength = 200;
     public const int MaxCountryLength = 100;
     public const int MaxOriginalFileNameLength = 255;
+    public const int MaxCvTextLength = 50_000;
     public const int MaxInterestedFieldLength = 40;
     public const int MaxInterestedFieldsCount = 15;
     public const int MaxPreferredShiftTypesCount = 3;
@@ -28,6 +29,14 @@ public sealed class WorkerProfile
     public string? CvStorageKey { get; private set; }
     public string? CvOriginalFileName { get; private set; }
     public DateTimeOffset? CvUploadedAt { get; private set; }
+
+    /// <summary>Plain text extracted from the CV PDF, or null when none was uploaded or the PDF had no extractable text (e.g. a scan).</summary>
+    public string? CvText { get; private set; }
+
+    // Internal CV-derived profile (see CvReader), used only for ranking — never exposed by the API.
+    public IReadOnlyList<string> CvRoles { get; private set; } = NoInterestedFields;
+    public IReadOnlyList<string> CvLanguages { get; private set; } = NoInterestedFields;
+    public int? CvYearsOfExperience { get; private set; }
 
     /// <summary>Storage key for the uploaded profile photo, or null when none was uploaded.</summary>
     public string? PhotoStorageKey { get; private set; }
@@ -89,11 +98,23 @@ public sealed class WorkerProfile
         IsLocationVerified = true;
     }
 
-    public void SetCv(string storageKey, string originalFileName, DateTimeOffset uploadedAt)
+    public void SetCv(
+        string storageKey,
+        string originalFileName,
+        DateTimeOffset uploadedAt,
+        string? text = null,
+        IReadOnlyList<string>? roles = null,
+        IReadOnlyList<string>? languages = null,
+        int? yearsOfExperience = null)
     {
         CvStorageKey = storageKey;
         CvOriginalFileName = originalFileName.Trim();
         CvUploadedAt = uploadedAt;
+        var trimmedText = text?.Trim();
+        CvText = string.IsNullOrEmpty(trimmedText) ? null : trimmedText[..Math.Min(trimmedText.Length, MaxCvTextLength)];
+        CvRoles = roles ?? NoInterestedFields;
+        CvLanguages = languages ?? NoInterestedFields;
+        CvYearsOfExperience = yearsOfExperience;
     }
 
     public void SetPhoto(string storageKey, DateTimeOffset uploadedAt)
