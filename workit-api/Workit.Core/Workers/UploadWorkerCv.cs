@@ -67,10 +67,23 @@ public static class UploadWorkerCv
 
             var previousStorageKey = profile.CvStorageKey;
             var extension = AllowedContentTypes[request.ContentType];
-            var storageKey = await fileStorage.SaveAsync(request.Content, ContainerName, extension, cancellationToken);
+            // Buffered once (max 5MB) so the same bytes feed both text extraction and storage.
+            using var buffer = new MemoryStream();
+            await request.Content.CopyToAsync(buffer, cancellationToken);
+            var text = CvReader.ExtractText(buffer.ToArray());
+            var insights = CvReader.Analyze(text);
+            buffer.Position = 0;
+            var storageKey = await fileStorage.SaveAsync(buffer, ContainerName, extension, cancellationToken);
 
             var now = clock.UtcNow;
-            profile.SetCv(storageKey, request.FileName, now);
+            profile.SetCv(
+                storageKey,
+                request.FileName,
+                now,
+                text,
+                insights.Roles,
+                insights.Languages,
+                insights.YearsOfExperience);
             await dataWriter.SaveAsync(cancellationToken);
 
             if (previousStorageKey is not null)
@@ -81,4 +94,5 @@ public static class UploadWorkerCv
             return new Response(profile.CvOriginalFileName!, now);
         }
     }
+
 }

@@ -166,6 +166,36 @@ public sealed class ReviewEndpointTests
         secondHireResponse.StatusCode.ShouldBe(HttpStatusCode.BadRequest);
     }
 
+    [Fact]
+    public async Task Top_workers_rank_experienced_well_rated_workers_first()
+    {
+        await using var factory = CreateFactory();
+        using var client = factory.CreateClient();
+
+        var business = await RegisterBusinessAsync(client);
+        var experienced = await RegisterWorkerAsync(client, "experienced@example.com");
+        var newcomer = await RegisterWorkerAsync(client, "newcomer@example.com");
+        var experiencedProfileId = await GetWorkerProfileIdAsync(client, experienced.AccessToken);
+        var newcomerProfileId = await GetWorkerProfileIdAsync(client, newcomer.AccessToken);
+
+        client.DefaultRequestHeaders.Authorization = new AuthenticationHeaderValue("Bearer", business.AccessToken);
+        var pastJobId = await CreateJobOpeningAsync(client, requiredWorkersCount: 1);
+        var assignmentId = await HireAsync(client, pastJobId, experiencedProfileId);
+        (await client.PostAsync($"/assignments/{assignmentId}/complete", null)).EnsureSuccessStatusCode();
+        (await client.PostAsJsonAsync("/reviews", new CreateReviewEndpoint.Body(assignmentId, 5, null))).EnsureSuccessStatusCode();
+
+        var newJobId = await CreateJobOpeningAsync(client, requiredWorkersCount: 1);
+        var response = await client.GetAsync($"/job-openings/{newJobId}/top-workers");
+        var topWorkers = await response.Content.ReadFromJsonAsync<GetTopWorkers.Response>();
+
+        response.StatusCode.ShouldBe(HttpStatusCode.OK, await response.Content.ReadAsStringAsync());
+        topWorkers.ShouldNotBeNull();
+        topWorkers.Items.Select(item => item.WorkerProfileId).ShouldBe([experiencedProfileId, newcomerProfileId]);
+        topWorkers.Items[0].CompletedSameRoleJobsCount.ShouldBe(1);
+        topWorkers.Items[0].AverageRating.ShouldBe(5);
+        topWorkers.Items[1].AverageRating.ShouldBeNull();
+    }
+
     private static async Task<Guid> CreateJobOpeningAsync(HttpClient client, int requiredWorkersCount)
     {
         var workDate = DateOnly.FromDateTime(DateTime.UtcNow.AddDays(2));
