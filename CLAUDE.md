@@ -21,3 +21,7 @@ Run these from `workit-api/` (the solution lives there, not the repo root):
 - `WorkerProfile.CvText`/`CvRoles`/`CvLanguages`/`CvYearsOfExperience` are internal-only (ranking in `GetTopWorkers`, never returned by any endpoint) and only set by `UploadWorkerCv` via `CvReader` (PdfPig + keyword rules). CVs uploaded before that existed have them empty; scanned PDFs yield null text.
 - `BusinessProfile.Latitude`/`Longitude` are required at registration, so businesses always have coordinates — unlike workers.
 - API tests (`Workit.Api.Tests`) swap `ICityLookupService`/`IIdentityVerificationProvider` for fakes (see `WebApplicationFactory` setup in test files) to avoid hitting Nominatim/Stripe in CI.
+- Businesses always have coordinates, unlike workers: `RegisterBusiness` takes optional `Latitude`/`Longitude`, else geocodes `FullAddress` and rejects the request on no match.
+- Parse/format third-party coordinates with `CultureInfo.InvariantCulture`: request localization sets `CurrentCulture` to `sq` (comma decimal), which silently breaks culture-default `double.TryParse`.
+- Signup-form geocoding (`/geocoding/autocomplete` via Photon, `/geocoding/reverse` via Nominatim) is `IAddressLookupService`, separate from `ICityLookupService`. Nominatim's usage policy bans search-as-you-type, hence Photon for autocomplete.
+- API tests (`Workit.Api.Tests`) swap `ICityLookupService`/`IAddressLookupService`/`IIdentityVerificationProvider` for fakes (see `WebApplicationFactory` setup in test files) to avoid hitting Nominatim/Stripe in CI.
